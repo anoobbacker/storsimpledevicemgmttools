@@ -1,6 +1,6 @@
 ﻿<#
 .DESCRIPTION
-    This scipt lists all backup policies under Device.
+    This script scans for updates on the device.
 
     Steps to execute the script: 
     ----------------------------
@@ -18,16 +18,16 @@
             > C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Rest.ClientRuntime.Azure.Authentication -Version 2.2.9-preview
     
     4.  Download the script from script center. 
-            > wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Get-DeviceBackupPolicy.ps1 -Out Get-DeviceBackupPolicy.ps1
-            > .\Get-DeviceBackupPolicy.ps1 -SubscriptionId <subid> -ResourceGroupName <resource group> -ManagerName <device manager> -DeviceName <device name>
+            > wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Get-DeviceUpdateAvailability.ps1 -Out Get-DeviceUpdateAvailability.ps1
+            > .\Get-DeviceUpdateAvailability.ps1 -SubscriptionId <subid> -ResourceGroupName <resource group> -ManagerName <device manager> -DeviceName <device name>
      
-     ----------------------------
+     ----------------------------     
 .PARAMS 
 
     SubscriptionId: Input the ID of the subscription.
-    DeviceName: Input the name of the StorSimple device on which to create/update the volume.
-    ResourceGroupName: Input the name of the resource group on which to create/update the volume.
-    ManagerName: Input the name of the resource (StorSimple device manager) on which to create/update the volume.
+    DeviceName: Input the name of the StorSimple device on which to scan for updates on the device.
+    ResourceGroupName: Input the name of the resource group on which to scan for updates on the device.
+    ManagerName: Input the name of the resource (StorSimple device manager) on which to scan for updates on the device.
 
 #>
 
@@ -37,15 +37,15 @@ Param
     [String]
     $SubscriptionId,
 
-    [parameter(Mandatory = $true, HelpMessage = "Input the name of the resource group on which to read backup schedules and backup catalogs.")]
+    [parameter(Mandatory = $true, HelpMessage = "Input the name of the resource group on which to scan for updates on the device.")]
     [String]
     $ResourceGroupName,
 
-    [parameter(Mandatory = $true, HelpMessage = "Input the name of the resource (StorSimple device manager) on which to read backup schedules and backup catalogs.")]
+    [parameter(Mandatory = $true, HelpMessage = "Input the name of the resource (StorSimple device manager) on which to scan for updates on the device.")]
     [String]
     $ManagerName,
 
-    [parameter(Mandatory = $true, HelpMessage = "Input the name of the StorSimple device on which to read backup schedules and backup catalogs.")]
+    [parameter(Mandatory = $true, HelpMessage = "Input the name of the StorSimple device on which to scan for updates on the device.")]
     [String]
     $DeviceName
 )
@@ -63,10 +63,10 @@ $StorSimple8000SeresePath = Join-Path $ScriptDirectory "Microsoft.Azure.Manageme
 
 #Load all required assemblies
 [System.Reflection.Assembly]::LoadFrom($ActiveDirectoryPath) | Out-Null
-[System.Reflection.Assembly]::LoadFrom($ClientRuntimeAzurePath) | Out-Null
-[System.Reflection.Assembly]::LoadFrom($ClientRuntimePath) | Out-Null
-[System.Reflection.Assembly]::LoadFrom($NewtonsoftJsonPath) | Out-Null
 [System.Reflection.Assembly]::LoadFrom($AzureAuthenticationPath) | Out-Null
+[System.Reflection.Assembly]::LoadFrom($ClientRuntimePath) | Out-Null
+[System.Reflection.Assembly]::LoadFrom($ClientRuntimeAzurePath) | Out-Null
+[System.Reflection.Assembly]::LoadFrom($NewtonsoftJsonPath) | Out-Null
 [System.Reflection.Assembly]::LoadFrom($StorSimple8000SeresePath) | Out-Null
 
 # Print methods
@@ -96,9 +96,19 @@ $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.S
 # Set SubscriptionId
 $StorSimpleClient.SubscriptionId = $SubscriptionId
 
-# Get all backup policies by Device
 try {
-    $BackupPolicies = [Microsoft.Azure.Management.StorSimple8000Series.BackupPoliciesOperationsExtensions]::ListByDevice($StorSimpleClient.BackupPolicies, $DeviceName, $ResourceGroupName, $ManagerName)
+    # Scans device updates
+    [Microsoft.Azure.Management.StorSimple8000Series.DevicesOperationsExtensions]::ScanForUpdates($StorSimpleClient.Devices, $DeviceName, $ResourceGroupName, $ManagerName)
+
+    # Reads update summary
+    $UpdateSummary = [Microsoft.Azure.Management.StorSimple8000Series.DevicesOperationsExtensions]::GetUpdateSummary($StorSimpleClient.Devices, $DeviceName, $ResourceGroupName, $ManagerName)
+    
+    $LastUpdatedOn = $UpdateSummary.LastUpdatedTime
+    if ($LastUpdatedOn -ne $null) {
+        $LastUpdatedOn = $LastUpdatedOn.ToString('ddd MMM dd yyyy')
+    }else {
+        $LastUpdatedOn = "-"
+    }
 }
 catch {
     # Print error details
@@ -106,11 +116,10 @@ catch {
     break
 }
 
-
-# Print backup policies
-PrettyWriter "`nBackups policies:"
-if ($BackupPolicies -ne $null -and $BackupPolicies.Length -gt 0) {
-    $BackupPolicies | Sort-Object Name
+if ($UpdateSummary.RegularUpdatesAvailable -and $UpdateSummary.IsUpdateInProgress) {
+    PrettyWriter "Download and install of software updates in progress."
+} elseif ($UpdateSummary.RegularUpdatesAvailable) {
+    PrettyWriter "New updates are available.`nLast updated on: $($LastUpdatedOn)"
 } else {
-    Write-Error "No backup policy is configured."
+    PrettyWriter "Your device ($($DeviceName)) is up-to-date.`nLast updated on: $($LastUpdatedOn)"
 }
