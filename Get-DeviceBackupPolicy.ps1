@@ -1,6 +1,6 @@
 ﻿<#
 .DESCRIPTION
-    This scipt reads currently available backup policies under Device.
+    This scipt lists all backup policies under Device.
 
     Steps to execute the script: 
     ----------------------------
@@ -18,34 +18,34 @@
             > C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Rest.ClientRuntime.Azure.Authentication -Version 2.2.9-preview
     
     4.  Download the script from script center. 
-            wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Get-DeviceBackupPolicy.ps1 -Out Get-DeviceBackupPolicy.ps1
+            > wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Get-DeviceBackupPolicy.ps1 -Out Get-DeviceBackupPolicy.ps1
             > .\Get-DeviceBackupPolicy.ps1 -SubscriptionId <subid> -ResourceGroupName <resource group> -ManagerName <device manager> -DeviceName <device name>
      
      ----------------------------
 .PARAMS 
 
-    SubscriptionId: Specifies the ID of the subscription.
-    DeviceName: Specifies the name of the StorSimple device on which to create/update the volume.
-    ResourceGroupName: Specifies the name of the resource group on which to create/update the volume.
-    ManagerName: Specifies the name of the resource (StorSimple device manager) on which to create/update the volume.
+    SubscriptionId: Input the ID of the subscription.
+    DeviceName: Input the name of the StorSimple device on which to create/update the volume.
+    ResourceGroupName: Input the name of the resource group on which to create/update the volume.
+    ManagerName: Input the name of the resource (StorSimple device manager) on which to create/update the volume.
 
 #>
 
 Param
 (
-    [parameter(Mandatory = $true, HelpMessage = "Specifies the ID of the subscription.")]
+    [parameter(Mandatory = $true, HelpMessage = "Input the ID of the subscription.")]
     [String]
     $SubscriptionId,
 
-    [parameter(Mandatory = $true, HelpMessage = "Specifies the name of the resource group on which to read backup schedules and backup catalogs.")]
+    [parameter(Mandatory = $true, HelpMessage = "Input the name of the resource group on which to read backup schedules and backup catalogs.")]
     [String]
     $ResourceGroupName,
 
-    [parameter(Mandatory = $true, HelpMessage = "Specifies the name of the resource (StorSimple device manager) on which to read backup schedules and backup catalogs.")]
+    [parameter(Mandatory = $true, HelpMessage = "Input the name of the resource (StorSimple device manager) on which to read backup schedules and backup catalogs.")]
     [String]
     $ManagerName,
 
-    [parameter(Mandatory = $true, HelpMessage = "Specifies the name of the StorSimple device on which to read backup schedules and backup catalogs.")]
+    [parameter(Mandatory = $true, HelpMessage = "Input the name of the StorSimple device on which to read backup schedules and backup catalogs.")]
     [String]
     $DeviceName
 )
