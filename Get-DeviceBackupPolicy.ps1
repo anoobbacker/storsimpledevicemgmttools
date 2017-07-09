@@ -1,6 +1,6 @@
 ﻿<#
 .DESCRIPTION
-    This scipt lists all the backups under a device.
+    This scipt reads currently available backup policies under Device.
 
     Steps to execute the script: 
     ----------------------------
@@ -18,34 +18,34 @@
             > C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Rest.ClientRuntime.Azure.Authentication -Version 2.2.9-preview
     
     4.  Download the script from script center. 
-            wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Get-DeviceBackup.ps1 -Out Get-DeviceBackup.ps1
-            > .\Get-DeviceBackup.ps1 -SubscriptionId <subid> -ResourceGroupName <resource group> -ManagerName <device manager> -DeviceName <device name>
+            wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Get-DeviceBackupPolicy.ps1 -Out Get-DeviceBackupPolicy.ps1
+            > .\Get-DeviceBackupPolicy.ps1 -SubscriptionId <subid> -ResourceGroupName <resource group> -ManagerName <device manager> -DeviceName <device name>
      
      ----------------------------
 .PARAMS 
 
-    SubscriptionId: Input the ID of the subscription.
-    DeviceName: Input the name of the StorSimple device on which to create/update the volume.
-    ResourceGroupName: Input the name of the resource group on which to create/update the volume.
-    ManagerName: Input the name of the resource (StorSimple device manager) on which to create/update the volume.
+    SubscriptionId: Specifies the ID of the subscription.
+    DeviceName: Specifies the name of the StorSimple device on which to create/update the volume.
+    ResourceGroupName: Specifies the name of the resource group on which to create/update the volume.
+    ManagerName: Specifies the name of the resource (StorSimple device manager) on which to create/update the volume.
 
 #>
 
 Param
 (
-    [parameter(Mandatory = $true, HelpMessage = "Input the ID of the subscription.")]
+    [parameter(Mandatory = $true, HelpMessage = "Specifies the ID of the subscription.")]
     [String]
     $SubscriptionId,
 
-    [parameter(Mandatory = $true, HelpMessage = "Input the name of the resource group on which to read backup schedules and backup catalogs.")]
+    [parameter(Mandatory = $true, HelpMessage = "Specifies the name of the resource group on which to read backup schedules and backup catalogs.")]
     [String]
     $ResourceGroupName,
 
-    [parameter(Mandatory = $true, HelpMessage = "Input the name of the resource (StorSimple device manager) on which to read backup schedules and backup catalogs.")]
+    [parameter(Mandatory = $true, HelpMessage = "Specifies the name of the resource (StorSimple device manager) on which to read backup schedules and backup catalogs.")]
     [String]
     $ManagerName,
 
-    [parameter(Mandatory = $true, HelpMessage = "Input the name of the StorSimple device on which to read backup schedules and backup catalogs.")]
+    [parameter(Mandatory = $true, HelpMessage = "Specifies the name of the StorSimple device on which to read backup schedules and backup catalogs.")]
     [String]
     $DeviceName
 )
@@ -54,12 +54,12 @@ Param
 $ScriptDirectory = (Get-Location).Path
 
 #Set dll path
-$ActiveDirectoryPath = Join-Path $ScriptDirectory "Microsoft.IdentityModel.Clients.ActiveDirectory.2.28.3\lib\net45\Microsoft.IdentityModel.Clients.ActiveDirectory.dll"
-$ClientRuntimeAzurePath = Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.Azure.3.3.7\lib\net452\Microsoft.Rest.ClientRuntime.Azure.dll"
-$ClientRuntimePath = Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.2.3.8\lib\net452\Microsoft.Rest.ClientRuntime.dll"
-$NewtonsoftJsonPath = Join-Path $ScriptDirectory "Newtonsoft.Json.6.0.8\lib\net45\Newtonsoft.Json.dll"
-$AzureAuthenticationPath = Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.Azure.Authentication.2.2.9-preview\lib\net45\Microsoft.Rest.ClientRuntime.Azure.Authentication.dll"
-$StorSimple8000SeresePath = Join-Path $ScriptDirectory "Microsoft.Azure.Management.Storsimple8000series.1.0.0\lib\net452\Microsoft.Azure.Management.Storsimple8000series.dll"
+$ActiveDirectoryPath = Join-Path $ScriptDirectory "Dependencies\Microsoft.IdentityModel.Clients.ActiveDirectory.dll"
+$ClientRuntimeAzurePath = Join-Path $ScriptDirectory "Dependencies\Microsoft.Rest.ClientRuntime.Azure.dll"
+$ClientRuntimePath = Join-Path $ScriptDirectory "Dependencies\Microsoft.Rest.ClientRuntime.dll"
+$NewtonsoftJsonPath = Join-Path $ScriptDirectory "Dependencies\Newtonsoft.Json.dll"
+$AzureAuthenticationPath = Join-Path $ScriptDirectory "Dependencies\Microsoft.Rest.ClientRuntime.Azure.Authentication.dll"
+$StorSimple8000SeresePath = Join-Path $ScriptDirectory "Dependencies\Microsoft.Azure.Management.Storsimple8000series.dll"
 
 #Load all required assemblies
 [System.Reflection.Assembly]::LoadFrom($ActiveDirectoryPath) | Out-Null
@@ -96,9 +96,9 @@ $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.S
 # Set SubscriptionId
 $StorSimpleClient.SubscriptionId = $SubscriptionId
 
-# Get backups by Device
+# Get all backup policies by Device
 try {
-    $Backups = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::ListByDevice($StorSimpleClient.Backups, $DeviceName, $ResourceGroupName, $ManagerName)
+    $BackupPolicies = [Microsoft.Azure.Management.StorSimple8000Series.BackupPoliciesOperationsExtensions]::ListByDevice($StorSimpleClient.BackupPolicies, $DeviceName, $ResourceGroupName, $ManagerName)
 }
 catch {
     # Print error details
@@ -108,9 +108,9 @@ catch {
 
 
 # Print backup policies
-PrettyWriter "`nBackups:"
-if ($Backups -ne $null -and $Backups.Length -gt 0) {
-    $Backups | Sort-Object CreatedOn
+PrettyWriter "`nBackups policies:"
+if ($BackupPolicies -ne $null -and $BackupPolicies.Length -gt 0) {
+    $BackupPolicies | Sort-Object Name
 } else {
-    Write-Error "No successfully backup(s) available."
+    Write-Error "No backup policy is configured."
 }
