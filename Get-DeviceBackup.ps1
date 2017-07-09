@@ -1,50 +1,51 @@
 ﻿<#
 .DESCRIPTION
-    This scipt gets currently available backup(s) by Device.
+    This scipt lists all the backups under a device.
 
     Steps to execute the script: 
     ----------------------------
     1.  Open powershell, create a new folder & change directory to the folder.
-            mkdir C:\scripts\StorSimpleSDKTools
-            cd C:\scripts\StorSimpleSDKTools
+            > mkdir C:\scripts\StorSimpleSDKTools
+            > cd C:\scripts\StorSimpleSDKTools
     
     2.  Download nuget CLI under the same folder in Step1.
         Various versions of nuget.exe are available on nuget.org/downloads. Each download link points directly to an .exe file, so be sure to right-click and save the file to your computer rather than running it from the browser. 
-            wget https://dist.nuget.org/win-x86-commandline/latest/nuget.exe -Out nuget.exe
+            > wget https://dist.nuget.org/win-x86-commandline/latest/nuget.exe -Out :\scripts\StorSimpleSDKTools\nuget.exe
     
     3.  Download the dependent SDK
-            C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Azure.Management.Storsimple8000series
-            C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.IdentityModel.Clients.ActiveDirectory -Version 2.28.3
-            C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Rest.ClientRuntime.Azure.Authentication -Version 2.2.9-preview
+            > C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Azure.Management.Storsimple8000series
+            > C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.IdentityModel.Clients.ActiveDirectory -Version 2.28.3
+            > C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Rest.ClientRuntime.Azure.Authentication -Version 2.2.9-preview
     
     4.  Download the script from script center. 
-            wget script.ps1 -Out Get-DeviceBackup.ps1
+            wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Get-DeviceBackup.ps1 -Out Get-DeviceBackup.ps1
+            > .\Get-DeviceBackup.ps1 -SubscriptionId <subid> -ResourceGroupName <resource group> -ManagerName <device manager> -DeviceName <device name>
      
      ----------------------------
 .PARAMS 
 
-    SubscriptionId: Specifies the ID of the subscription.
-    DeviceName: Specifies the name of the StorSimple device on which to create/update the volume.
-    ResourceGroupName: Specifies the name of the resource group on which to create/update the volume.
-    ManagerName: Specifies the name of the resource (StorSimple device manager) on which to create/update the volume.
+    SubscriptionId: Input the ID of the subscription.
+    DeviceName: Input the name of the StorSimple device on which to create/update the volume.
+    ResourceGroupName: Input the name of the resource group on which to create/update the volume.
+    ManagerName: Input the name of the resource (StorSimple device manager) on which to create/update the volume.
 
 #>
 
 Param
 (
-    [parameter(Mandatory = $true, HelpMessage = "Specifies the ID of the subscription.")]
+    [parameter(Mandatory = $true, HelpMessage = "Input the ID of the subscription.")]
     [String]
     $SubscriptionId,
 
-    [parameter(Mandatory = $true, HelpMessage = "Specifies the name of the resource group on which to read backup schedules and backup catalogs.")]
+    [parameter(Mandatory = $true, HelpMessage = "Input the name of the resource group on which to read backup schedules and backup catalogs.")]
     [String]
     $ResourceGroupName,
 
-    [parameter(Mandatory = $true, HelpMessage = "Specifies the name of the resource (StorSimple device manager) on which to read backup schedules and backup catalogs.")]
+    [parameter(Mandatory = $true, HelpMessage = "Input the name of the resource (StorSimple device manager) on which to read backup schedules and backup catalogs.")]
     [String]
     $ManagerName,
 
-    [parameter(Mandatory = $true, HelpMessage = "Specifies the name of the StorSimple device on which to read backup schedules and backup catalogs.")]
+    [parameter(Mandatory = $true, HelpMessage = "Input the name of the StorSimple device on which to read backup schedules and backup catalogs.")]
     [String]
     $DeviceName
 )
