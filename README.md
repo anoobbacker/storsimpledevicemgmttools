@@ -10,7 +10,7 @@ This project will contain scripts and other tools which can be leveraged for aut
 ```
     
 2.  Download nuget CLI under the same folder in Step1. 
-    Various versions of nuget.exe are available on nuget.org/downloads. Each download link points directly to an .exe file, so be sure to right-click and save the file to your computer rather than running it from the browser. Refer [NuGet Documentation](https://docs.microsoft.com/en-gb/nuget/)
+    Various versions of nuget.exe are available on nuget.org/downloads. Each download link points directly to an .exe file, so be sure to right-click and save the file to your computer rather than running it from the browser. Refer [NuGet Documentation](https://docs.microsoft.com/en-gb/nuget/).
     
 ```
       wget https://dist.nuget.org/win-x86-commandline/latest/nuget.exe -Out nuget.exe
