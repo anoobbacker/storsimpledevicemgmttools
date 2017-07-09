@@ -1,5 +1,5 @@
-# storsimpledevicemgmttools
-This project will contain scripts which can be leveraged for automating StorSimple device management.
+# StorSimple Device Management Tools
+This project will contain scripts and other tools which can be leveraged for automating StorSimple device management.
 
     Steps to execute the script: 
     ----------------------------
