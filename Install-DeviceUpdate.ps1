@@ -1,6 +1,6 @@
 ﻿<#
 .DESCRIPTION
-    This script authorizes a device to change the service encryption key.
+    This script installs the updates on the device.
 
     Steps to execute the script: 
     ----------------------------
@@ -18,33 +18,34 @@
             > C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Rest.ClientRuntime.Azure.Authentication -Version 2.2.9-preview
     
     4.  Download the script from script center. 
-            > wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Authorize-ServiceEncryptionRollover.ps1 -Out Authorize-ServiceEncryptionRollover.ps1
-            > .\Authorize-ServiceEncryptionRollover.ps1 -SubscriptionId <subid> -ResourceGroupName <resource group> -ManagerName <device manager> -DeviceName <device name>
+            > wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Install-DeviceUpdate.ps1 -Out Install-DeviceUpdate.ps1
+            > .\Install-DeviceUpdate.ps1 -SubscriptionId <subid> -ResourceGroupName <resource group> -ManagerName <device manager> -DeviceName <device name>
      
-     ----------------------------     
+     ----------------------------      
 .PARAMS 
 
     SubscriptionId: Input the ID of the subscription.
-    DeviceName: Input the name of the StorSimple device on which to authorize a device to change the service encryption key.
-    ResourceGroupName: Input the name of the resource group on which to authorize a device to change the service encryption key.
-    ManagerName: Input the name of the resource (StorSimple device manager) on which to authorize a device to change the service encryption key.
+    DeviceName: Input the name of the StorSimple device on which to install the updates on the device.
+    ResourceGroupName: Input the name of the resource group on which to install the updates on the device.
+    ManagerName: Input the name of the resource (StorSimple device manager) on which to install the updates on the device.
+
 #>
 
 Param
 (
-    [parameter(Mandatory = $true, HelpMessage = "Input the ID of the subscription.")]
+    [parameter(Mandatory = $true, HelpMessage = "Specifies the ID of the subscription.")]
     [String]
     $SubscriptionId,
 
-    [parameter(Mandatory = $true, HelpMessage = "Input the name of the resource group on which to rollover the service encryption key.")]
+    [parameter(Mandatory = $true, HelpMessage = "Specifies the name of the resource group on which to create/update the volume.")]
     [String]
     $ResourceGroupName,
 
-    [parameter(Mandatory = $true, HelpMessage = "Input the name of the resource (StorSimple device manager) on which to rollover the service encryption key.")]
+    [parameter(Mandatory = $true, HelpMessage = "Specifies the name of the resource (StorSimple device manager) on which to create/update the volume.")]
     [String]
     $ManagerName,
 
-    [parameter(Mandatory = $true, HelpMessage = "Input the name of the StorSimple device on which to rollover the service encryption key.")]
+    [parameter(Mandatory = $true, HelpMessage = "Specifies the name of the StorSimple device on which to create/update the volume.")]
     [String]
     $DeviceName
 )
@@ -62,10 +63,10 @@ $StorSimple8000SeresePath = Join-Path $ScriptDirectory "Microsoft.Azure.Manageme
 
 #Load all required assemblies
 [System.Reflection.Assembly]::LoadFrom($ActiveDirectoryPath) | Out-Null
-[System.Reflection.Assembly]::LoadFrom($ClientRuntimeAzurePath) | Out-Null
-[System.Reflection.Assembly]::LoadFrom($ClientRuntimePath) | Out-Null
-[System.Reflection.Assembly]::LoadFrom($NewtonsoftJsonPath) | Out-Null
 [System.Reflection.Assembly]::LoadFrom($AzureAuthenticationPath) | Out-Null
+[System.Reflection.Assembly]::LoadFrom($ClientRuntimePath) | Out-Null
+[System.Reflection.Assembly]::LoadFrom($ClientRuntimeAzurePath) | Out-Null
+[System.Reflection.Assembly]::LoadFrom($NewtonsoftJsonPath) | Out-Null
 [System.Reflection.Assembly]::LoadFrom($StorSimple8000SeresePath) | Out-Null
 
 # Print methods
@@ -96,7 +97,18 @@ $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.S
 $StorSimpleClient.SubscriptionId = $SubscriptionId
 
 try {
-    [Microsoft.Azure.Management.StorSimple8000Series.DevicesOperationsExtensions]::AuthorizeForServiceEncryptionKeyRollover($StorSimpleClient.Devices, $DeviceName, $ResourceGroupName, $ManagerName)
+    # Installs latest device updates
+    [Microsoft.Azure.Management.StorSimple8000Series.DevicesOperationsExtensions]::BeginInstallUpdates($StorSimpleClient.Devices, $DeviceName, $ResourceGroupName, $ManagerName)
+
+    # Reads update summary
+    $UpdateSummary = [Microsoft.Azure.Management.StorSimple8000Series.DevicesOperationsExtensions]::GetUpdateSummary($StorSimpleClient.Devices, $DeviceName, $ResourceGroupName, $ManagerName)
+
+    $LastUpdatedOn = $UpdateSummary.LastUpdatedTime
+    if ($LastUpdatedOn -ne $null) {
+        $LastUpdatedOn = $LastUpdatedOn.ToString('ddd MMM dd yyyy')
+    } else {
+        $LastUpdatedOn = "-"
+    }
 }
 catch {
     # Print error details
@@ -104,5 +116,8 @@ catch {
     break
 }
 
-# Print success message
-PrettyWriter "Device ($($DeviceName)) successfully authorized a device to change the service encryption key`nThe authorization will be expire after 4 hours.`n"
+if ($UpdateSummary.RegularUpdatesAvailable -and $UpdateSummary.IsUpdateInProgress) {
+    PrettyWriter "Download and install of software updates in progress."
+} else {
+    PrettyWriter "Your device ($($DeviceName)) is up-to-date.`nLast updated on: $($LastUpdatedOn)"
+}
