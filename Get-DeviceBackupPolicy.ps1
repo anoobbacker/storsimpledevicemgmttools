@@ -24,7 +24,7 @@
      ----------------------------
 .PARAMS 
 
-    SubscriptionId: Input the ID of the subscription.
+    SubscriptionId: Input the subscription ID.
     DeviceName: Input the name of the StorSimple device on which to create/update the volume.
     ResourceGroupName: Input the name of the resource group on which to create/update the volume.
     ManagerName: Input the name of the resource (StorSimple device manager) on which to create/update the volume.
