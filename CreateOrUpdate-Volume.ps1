@@ -24,6 +24,7 @@
 .PARAMS 
 
     SubscriptionId: Input the Subscription ID where the StorSimple 8000 series device manager is deployed.
+    TenantId: Input the ID of the tenant of the subscription. Get using Get-AzureRmSubscription cmdlet.
     ResourceGroupName: Input the name of the resource group.
     ManagerName: Input the name of the StorSimple device manager.
     DeviceName: Input the name of the StorSimple device.
@@ -40,6 +41,10 @@ Param
     [parameter(Mandatory = $true, HelpMessage = "Input the Subscription ID where the StorSimple 8000 series device manager is deployed.")]
     [String]
     $SubscriptionId,
+
+    [parameter(Mandatory = $true, HelpMessage = "Input the ID of the tenant of the subscription. Get using Get-AzureRmSubscription cmdlet.")]
+    [String]
+    $TenantId,
 
     [parameter(Mandatory = $true, HelpMessage = "Input the name of the resource group.")]
     [String]
@@ -115,20 +120,19 @@ if (!($VolumeSizeInBytes -ge $MinimumVolumeSize -and $VolumeSizeInBytes -le $Max
 # Define constant variables (DO NOT CHANGE BELOW VALUES)
 $FrontdoorUrl = "urn:ietf:wg:oauth:2.0:oob"
 $TokenUrl = "https://management.azure.com"
-$TenantId = "1950a258-227b-4e31-a9cf-717495945fc2"
-$DomainId = "72f988bf-86f1-41af-91ab-2d7cd011db47"
+$DomainId = "1950a258-227b-4e31-a9cf-717495945fc2"
 
 $FrontdoorUri = New-Object System.Uri -ArgumentList $FrontdoorUrl
 $TokenUri = New-Object System.Uri -ArgumentList $TokenUrl
 
-$AADClient = [Microsoft.Rest.Azure.Authentication.ActiveDirectoryClientSettings]::UsePromptOnly($TenantId, $FrontdoorUri)
+$AADClient = [Microsoft.Rest.Azure.Authentication.ActiveDirectoryClientSettings]::UsePromptOnly($DomainId, $FrontdoorUri)
 
 # Set Synchronization context
 $SyncContext = New-Object System.Threading.SynchronizationContext
 [System.Threading.SynchronizationContext]::SetSynchronizationContext($SyncContext)
 
 # Verify User Credentials
-$Credentials = [Microsoft.Rest.Azure.Authentication.UserTokenProvider]::LoginWithPromptAsync($DomainId, $AADClient).GetAwaiter().GetResult()
+$Credentials = [Microsoft.Rest.Azure.Authentication.UserTokenProvider]::LoginWithPromptAsync($TenantId, $AADClient).GetAwaiter().GetResult()
 $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.StorSimple8000SeriesManagementClient -ArgumentList $TokenUri, $Credentials
 
 # Set SubscriptionId
