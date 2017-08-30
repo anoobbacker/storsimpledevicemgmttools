@@ -1,6 +1,6 @@
 ﻿<#
 .DESCRIPTION
-    This script authorizes a device to change the service encryption key.
+    This script updates the new service encryption key for all the 8010/8020 devices.
 
     Steps to execute the script: 
     ----------------------------
@@ -18,8 +18,8 @@
             > C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Rest.ClientRuntime.Azure.Authentication -Version 2.2.9-preview
     
     4.  Download the script from script center. 
-            > wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Authorize-ServiceEncryptionRollover.ps1 -Out Authorize-ServiceEncryptionRollover.ps1
-            > .\Authorize-ServiceEncryptionRollover.ps1 -SubscriptionId <subid> -ResourceGroupName <resource group> -ManagerName <device manager> -DeviceName <device name>
+            > wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Authorize-ServiceEncryptionRollover.ps1 -Out Update-CloudApplianceServiceEncryptionKey.ps1
+            > .\Update-CloudApplianceServiceEncryptionKey.ps1 -SubscriptionId <subid> -ResourceGroupName <resource group> -ManagerName <device manager>
      
      ----------------------------     
 .PARAMS 
@@ -44,9 +44,9 @@ Param
     [String]
     $ManagerName,
 
-    [parameter(Mandatory = $true, HelpMessage = "Input the name of the StorSimple device on which to rollover the service encryption key.")]
+    [parameter(Mandatory = $true, HelpMessage = "Input the service encryption key.")]
     [String]
-    $DeviceName
+    $EncryptionKey
 )
 
 # Set Current directory path
@@ -96,13 +96,24 @@ $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.S
 $StorSimpleClient.SubscriptionId = $SubscriptionId
 
 try {
-    [Microsoft.Azure.Management.StorSimple8000Series.DevicesOperationsExtensions]::AuthorizeForServiceEncryptionKeyRollover($StorSimpleClient.Devices, $DeviceName, $ResourceGroupName, $ManagerName)
+
+    $Devices = [Microsoft.Azure.Management.StorSimple8000Series.DevicesOperationsExtensions]::ListByManager($StorSimpleClient.Devices, $ResourceGroupName, $ManagerName);
+
+     $Devices | ForEach-Object {
+         if ( $_.DeviceType -eq [Microsoft.Azure.Management.StorSimple8000Series.Models.DeviceType]::Series8000VirtualAppliance) {
+             $SecuritySettings = [Microsoft.Azure.Management.StorSimple8000Series.DeviceSettingsOperationsExtensions]::GetSecuritySettings($StorSimpleClient.DeviceSettings, $_.FriendlyName, $ResourceGroupName, $ManagerName);
+             $ServiceDataEncryptionKey = New-Object[Microsoft.Azure.Management.StorSimple8000Series.Models.AsymmetricEncryptedSecret]::AsymmetricEncryptedSecret($EncryptionKey, [Microsoft.Azure.Management.StorSimple8000Series.Models.EncryptionAlgorithm]::None)
+         }
+     }
+     $ServiceDataEncryptionKey = New-Object Microsoft.Azure.Management.StorSimple8000Series.Models.CloudApplianceSettings -ArgumentList $TokenUri, $Credentials
+    
+    [Microsoft.Azure.Management.StorSimple8000Series.DeviceSettingsOperationsExtensions]::UpdateSecuritySettings($StorSimpleClient.DeviceSettings, $DeviceName, $ResourceGroupName, $ManagerName)
+
+    # Print success message
+    PrettyWriter "Device ($($DeviceName)) successfully authorized a device to change the service encryption key`nThe authorization will be expire after 4 hours.`n"
 }
 catch {
     # Print error details
     Write-Error $_.Exception.Message
     break
 }
-
-# Print success message
-PrettyWriter "Device ($($DeviceName)) successfully authorized a device to change the service encryption key`nThe authorization will be expire after 4 hours.`n"
