@@ -19,12 +19,13 @@
     
     4.  Download the script from script center. 
             > wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Authorize-ServiceEncryptionRollover.ps1 -Out Update-CloudApplianceServiceEncryptionKey.ps1
-            > .\Update-CloudApplianceServiceEncryptionKey.ps1 -SubscriptionId <subid> -ResourceGroupName <resource group> -ManagerName <device manager>
+            > .\Update-CloudApplianceServiceEncryptionKey.ps1 -SubscriptionId <subid> -TenantId <tenantid> -ResourceGroupName <resource group> -ManagerName <device manager>
      
      ----------------------------     
 .PARAMS 
 
-    SubscriptionId: Input the ID of the subscription.
+    SubscriptionId: Input the Subscription ID where the StorSimple 8000 series device manager is deployed.
+    TenantId: Input the ID of the tenant of the subscription. Get using Get-AzureRmSubscription cmdlet.
     DeviceName: Input the name of the StorSimple device on which to authorize a device to change the service encryption key.
     ResourceGroupName: Input the name of the resource group on which to authorize a device to change the service encryption key.
     ManagerName: Input the name of the resource (StorSimple device manager) on which to authorize a device to change the service encryption key.
@@ -32,9 +33,13 @@
 
 Param
 (
-    [parameter(Mandatory = $true, HelpMessage = "Input the ID of the subscription.")]
+    [parameter(Mandatory = $true, HelpMessage = "Input the Subscription ID where the StorSimple 8000 series device manager is deployed.")]
     [String]
     $SubscriptionId,
+
+    [parameter(Mandatory = $true, HelpMessage = "Input the ID of the tenant of the subscription. Get using Get-AzureRmSubscription cmdlet.")]
+    [String]
+    $TenantId,
 
     [parameter(Mandatory = $true, HelpMessage = "Input the name of the resource group on which to rollover the service encryption key.")]
     [String]
@@ -76,20 +81,19 @@ Function PrettyWriter($Content, $Color = "Yellow") {
 # Define constant variables (DO NOT CHANGE BELOW VALUES)
 $FrontdoorUrl = "urn:ietf:wg:oauth:2.0:oob"
 $TokenUrl = "https://management.azure.com"
-$TenantId = "1950a258-227b-4e31-a9cf-717495945fc2"
-$DomainId = "72f988bf-86f1-41af-91ab-2d7cd011db47"
+$DomainId = "1950a258-227b-4e31-a9cf-717495945fc2"
 
 $FrontdoorUri = New-Object System.Uri -ArgumentList $FrontdoorUrl
 $TokenUri = New-Object System.Uri -ArgumentList $TokenUrl
 
-$AADClient = [Microsoft.Rest.Azure.Authentication.ActiveDirectoryClientSettings]::UsePromptOnly($TenantId, $FrontdoorUri)
+$AADClient = [Microsoft.Rest.Azure.Authentication.ActiveDirectoryClientSettings]::UsePromptOnly($DomainId, $FrontdoorUri)
 
 # Set Synchronization context
 $SyncContext = New-Object System.Threading.SynchronizationContext
 [System.Threading.SynchronizationContext]::SetSynchronizationContext($SyncContext)
 
 # Verify User Credentials
-$Credentials = [Microsoft.Rest.Azure.Authentication.UserTokenProvider]::LoginWithPromptAsync($DomainId, $AADClient).GetAwaiter().GetResult()
+$Credentials = [Microsoft.Rest.Azure.Authentication.UserTokenProvider]::LoginWithPromptAsync($TenantId, $AADClient).GetAwaiter().GetResult()
 $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.StorSimple8000SeriesManagementClient -ArgumentList $TokenUri, $Credentials
 
 # Set SubscriptionId
