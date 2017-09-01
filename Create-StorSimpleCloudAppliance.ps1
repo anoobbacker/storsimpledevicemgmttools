@@ -22,12 +22,12 @@
     SubscriptionId: Input the ID of the subscription.
     ResourceGroup: Input the name of the resource group on which to authorize a device to change the service encryption key.
     Name: Input the name of the cloud appliance.
-    ModelNumber: Input the appliance model number
-    VirtualNetwork:
-    Subnet:
-    StorageAccount:
-    VmSize: 
-    RegistrationKey: 
+    ModelNumber: Input the appliance model number.
+    VirtualNetwork: Input the name of the virtual network.
+    Subnet: Input the name of the subnet of given virtual network.
+    StorageAccount: Input the name of the storage account where the 8010/8020 appliance needs to be created.
+    VmSize: Input the VM size. Possible values: Standard_DS3, Standard_DS3_v2, Standard_A3
+    RegistrationKey: Input the Registration key.
 #>
 
 param(
@@ -126,7 +126,7 @@ function GetCustomData()
 {
     $data = ""
     $data += "`r`nModelNumber=$ModelNumber"
-    $data += "`r`nRegistrationKey=$RegistrationKey"
+    $data += "`r`nRegistrationKey=$RegistrationKey.Substring(0, $RegistrationKey.LastIndexOf(':'))"
     $data += "`r`nTrackingId=$random"
     return $data
 }
@@ -143,8 +143,8 @@ function DeployVm()
         Add-AzureRmVMDataDisk -Name "datadisk2" -DiskSizeInGB 1023 -VhdUri ($storageAcc.PrimaryEndpoints.Blob.ToString() + $containerName + "\datadisk2.vhd") -CreateOption empty -Lun 1 | `
         Add-AzureRmVMDataDisk -Name "datadisk3" -DiskSizeInGB 1023 -VhdUri ($storageAcc.PrimaryEndpoints.Blob.ToString() + $containerName + "\datadisk3.vhd") -CreateOption empty -Lun 2 | `
         Add-AzureRmVMDataDisk -Name "datadisk4" -DiskSizeInGB 1023 -VhdUri ($storageAcc.PrimaryEndpoints.Blob.ToString() + $containerName + "\datadisk4.vhd") -CreateOption empty -Lun 3 | `
-        Set-AzureRmVMSourceImage -PublisherName MicrosoftHybridCloudStorage -Offer StorSimple `
-        -Skus StorSimple-Garda-8000-Series -Version 9600.17820.170208 | Add-AzureRmVMNetworkInterface -Id $nicId | Set-AzureRmVMBootDiagnostics -Disable
+        Set-AzureRmVMSourceImage -PublisherName MicrosoftHybridCloudStorage -Offer StorSimple -Skus StorSimple-Garda-8000-Series -Version 9600.17820.170208 | `
+        Add-AzureRmVMNetworkInterface -Id $nicId | Set-AzureRmVMBootDiagnostics -Disable
     
     try {
         $vm = New-AzureRmVM -ResourceGroupName $ResourceGroup -Location $location -VM $vmConfig
