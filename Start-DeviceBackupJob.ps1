@@ -113,14 +113,11 @@ $StorSimpleClient.SubscriptionId = $SubscriptionId
 try {
     $BackupResult = [Microsoft.Azure.Management.StorSimple8000Series.BackupPoliciesOperationsExtensions]::BackupNowAsync($StorSimpleClient.BackupPolicies, $DeviceName, $BackupPolicyName, $BackupType, $ResourceGroupName, $ManagerName)
     
-    if ($BackupResult -ne $null -and $BackupResult.Status -eq 'RanToCompletion') {
-        Write-Output "Backup started successfully."
-    }
-    elseIf ($BackupResult -ne $null) {
-        Write-Error $BackupResult.Exception
+    if ($BackupResult -ne $null -and $BackupResult.IsFaulted) {
+        Write-Output $BackupResult.Exception
     }
     else {
-        Write-Error "Error: Failed to start the backup ($BackupPolicyName)."
+        Write-Output "Backup started successfully."
     }
 }
 catch {
