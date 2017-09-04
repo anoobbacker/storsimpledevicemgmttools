@@ -116,12 +116,16 @@ $ExpirationDate = $Today.AddDays(-$RetentionInDays)
 $BackupType = 'CloudSnapshot'
 
 try {
+    Write-Output "Starting start a manual backup."
+
     $Result = [Microsoft.Azure.Management.StorSimple8000Series.BackupPoliciesOperationsExtensions]::BackupNowAsync($StorSimpleClient.BackupPolicies, $DeviceName, $BackupPolicyName, $BackupType, $ResourceGroupName, $ManagerName)
     
     if ($Result -ne $null -and $Result.IsFaulted) {
         Write-Output $Result.Exception
         break
     }
+
+    PrettyWriter "Successfully started the manual backup job."
 }
 catch {
     # Print error details
@@ -141,15 +145,14 @@ catch {
     break
 }
 
+Write-Output "Find the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them."
 foreach ($Snapshot in $CompletedSnapshots) 
 {
+    $SnapShotName = $SnapShot.Name
     $SnapshotStartTimeStamp = $Snapshot.CreatedOn
     if ($SnapshotStartTimeStamp -lt $ExpirationDate)
     {
-        $SnapShotName = $SnapShot.Name
-        PrettyWriter "This snpashotdate was created on $($SnapshotStartTimeStamp.Date.ToShortDateString())"
-        PrettyWriter "Name $($SnapShotName)"
-        Write-Host "This snpashotdate is older and needs to be deleted`n"
+        PrettyWriter "Deleting $($SnapShotName) which was created on $($SnapshotStartTimeStamp)."
         
         try {
             $Result = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::DeleteAsync($StorSimpleClient.Backups, $DeviceName, $SnapShotName, $ResourceGroupName, $ManagerName)
@@ -160,6 +163,11 @@ foreach ($Snapshot in $CompletedSnapshots)
         catch {
             # Print error details
             Write-Error $_.Exception.Message
-        }
+            break
+        } 
+    }
+    else
+    {
+        #Write-Output "Skipping $SnapShotName at $SnapshotStartTimeStamp"
     }
 }
