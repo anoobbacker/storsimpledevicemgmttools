@@ -107,14 +107,11 @@ $StorSimpleClient.SubscriptionId = $SubscriptionId
 try {
     $BackupResult = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::DeleteAsync($StorSimpleClient.Backups, $DeviceName, $BackupName, $ResourceGroupName, $ManagerName)
     
-    if ($BackupResult -ne $null -and $BackupResult.Status -eq 'RanToCompletion') {
-        Write-Output "Backup deleted successfully."
-    }
-    elseIf ($BackupResult -ne $null) {
+    if ($BackupResult -ne $null -and $BackupResult.IsFaulted) {
         Write-Error $BackupResult.Exception
     }
     else {
-        Write-Output "Error: Failed to delete the backup."
+        Write-Output "Backup deleted successfully."
     }
 }
 catch {
