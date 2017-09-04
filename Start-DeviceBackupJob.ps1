@@ -19,7 +19,7 @@
     
     4.  Download the script from script center. 
             > wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Start-DeviceBackupJob.ps1 -Out Start-DeviceBackupJob.ps1
-            > .\Start-DeviceBackupJob.ps1 -SubscriptionId <subid> -TenantId <tenantid> -ResourceGroupName <resource group> -ManagerName <device manager> -DeviceName <device name>
+            > .\Start-DeviceBackupJob.ps1 -SubscriptionId <subid> -TenantId <tenantid> -ResourceGroupName <resource group> -ManagerName <device manager> -DeviceName <device name> -BackupName <backup name> -BackupType <backup type>
      
      ----------------------------
 .PARAMS 
