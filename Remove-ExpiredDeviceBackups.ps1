@@ -1,6 +1,6 @@
 ﻿<#
 .DESCRIPTION
-    This scipt deletes the backup object[s].
+    This scipt starts a manual backup & deletes the backup cloud snapshots older than specified retention days.
 
     Steps to execute the script: 
     ----------------------------
