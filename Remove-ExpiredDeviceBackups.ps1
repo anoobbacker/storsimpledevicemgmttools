@@ -19,7 +19,7 @@
     
     4.  Download the script from script center. 
             > wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Remove-ExpiredDeviceBackups.ps1 -Out Remove-ExpiredDeviceBackups.ps1
-            > .\Remove-ExpiredDeviceBackups.ps1 -SubscriptionId <subid> -TenantId <tenantid> -ResourceGroupName <resource group> -ManagerName <device manager> -DeviceName <device name> -BackupName <backup name> -RetentionInDays <retention days>
+            > .\Remove-ExpiredDeviceBackups.ps1 -SubscriptionId <subid> -TenantId <tenantid> -ResourceGroupName <resource group> -ManagerName <device manager> -DeviceName <device name> -BackupPolicyName <backup policy name> -RetentionInDays <retention days>
      
      ----------------------------
 .PARAMS 
