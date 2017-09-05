@@ -27,7 +27,7 @@
     Subnet: Input the name of the subnet of given virtual network.
     StorageAccount: Input the name of the storage account where the 8010/8020 appliance needs to be created.
     VmSize: Input the VM size. Possible values: Standard_DS3, Standard_DS3_v2, Standard_A3
-    RegistrationKey: Input the Registration key.
+    RegistrationKey: Input the registration key.
 #>
 
 param(
@@ -64,15 +64,7 @@ param(
     [parameter(Mandatory=$true, HelpMessage="Input the Registration key.")]
     [string] $RegistrationKey
     )
-    
-    
- 
-# Display Selected Subscription Details
-Function Subscription {
-    #multiple platform support
-    Select-AzureRmProfile -Profile $Env
-    Get-AzureRmSubscription -SubscriptionName $Subscription.SubscriptionName | Select-AzureRmSubscription
-}
+
 
 function ValidateInputs()
 {
@@ -110,55 +102,6 @@ function ValidateInputs()
     }
 }
 
-function CreateNic()
-{
-    $iPconfig = New-AzureRmNetworkInterfaceIpConfig -Name "ipconfig1" -PrivateIpAddressVersion IPv4 -PrivateIpAddress $avaialbleIp -SubnetId $subnetId
-    return New-AzureRmNetworkInterface -Name $nicName -ResourceGroupName $ResourceGroup -Location $location -IpConfiguration $iPconfig
-}
-
-function GetAvailableIpAddress()
-{
-    $availableIp = $vnet | Test-AzureRmPrivateIPAddressAvailability -IPAddress $subnetObj.AddressPrefix.Split('/')[0]    
-    return $availableIp.AvailableIPAddresses[0]
-}
-
-function GetCustomData()
-{
-    $data = ""
-    $data += "`r`nModelNumber=$ModelNumber"
-    $data += "`r`nRegistrationKey=$RegistrationKey.Substring(0, $RegistrationKey.LastIndexOf(':'))"
-    $data += "`r`nTrackingId=$random"
-    return $data
-}
-
-function DeployVm()
-{
-    $secpasswd = ConvertTo-SecureString "StorSim1StorSim1" -AsPlainText -Force
-    $cred = New-Object System.Management.Automation.PSCredential ("hcstestuser", $secpasswd)
-
-    $vmConfig = New-AzureRmVMConfig -VMName $Name -VMSize $VmSize | `
-        Set-AzureRmVMOperatingSystem -ComputerName $Name -Credential $cred -CustomData $customData -Windows | `
-        Set-AzureRmVMOSDisk -Name "os" -VhdUri ($storageAcc.PrimaryEndpoints.Blob.ToString() + $containerName + "\os.vhd") -CreateOption FromImage | `
-        Add-AzureRmVMDataDisk -Name "datadisk1" -DiskSizeInGB 1023 -VhdUri ($storageAcc.PrimaryEndpoints.Blob.ToString() + $containerName + "\datadisk1.vhd") -CreateOption empty -Lun 0 | `
-        Add-AzureRmVMDataDisk -Name "datadisk2" -DiskSizeInGB 1023 -VhdUri ($storageAcc.PrimaryEndpoints.Blob.ToString() + $containerName + "\datadisk2.vhd") -CreateOption empty -Lun 1 | `
-        Add-AzureRmVMDataDisk -Name "datadisk3" -DiskSizeInGB 1023 -VhdUri ($storageAcc.PrimaryEndpoints.Blob.ToString() + $containerName + "\datadisk3.vhd") -CreateOption empty -Lun 2 | `
-        Add-AzureRmVMDataDisk -Name "datadisk4" -DiskSizeInGB 1023 -VhdUri ($storageAcc.PrimaryEndpoints.Blob.ToString() + $containerName + "\datadisk4.vhd") -CreateOption empty -Lun 3 | `
-        Set-AzureRmVMSourceImage -PublisherName MicrosoftHybridCloudStorage -Offer StorSimple -Skus StorSimple-Garda-8000-Series -Version 9600.17820.170208 | `
-        Add-AzureRmVMNetworkInterface -Id $nicId | Set-AzureRmVMBootDiagnostics -Disable
-    
-    try {
-        $vm = New-AzureRmVM -ResourceGroupName $ResourceGroup -Location $location -VM $vmConfig
-    } catch {
-        # Print error details
-        Write-Error $_.Exception.Message
-        break
-    }
-    
-    # Print success message
-    PrettyWriter "$Name successfully got created."
-
-}
-
 # Print methods
 Function PrettyWriter($Content, $Color = "Yellow") { 
     Write-Host $Content -Foregroundcolor $Color 
@@ -183,10 +126,38 @@ $subnetObj = $vnet.Subnets | where {$_.Name -like $Subnet}
 $random = Get-Random
 $nicName = $Name+$random
 $containerName = $Name+$random
-$avaialbleIp = GetAvailableIpAddress
+$availableIpAddr = $vnet | Test-AzureRmPrivateIPAddressAvailability -IPAddress $subnetObj.AddressPrefix.Split('/')[0]
+$avaialbleIp = $availableIpAddr.AvailableIPAddresses[0]
 $subnetId = $subnetObj.Id
-$nic = CreateNic
-$customData = GetCustomData
+$iPconfig = New-AzureRmNetworkInterfaceIpConfig -Name "ipconfig1" -PrivateIpAddressVersion IPv4 -PrivateIpAddress $avaialbleIp -SubnetId $subnetId
+$nic = New-AzureRmNetworkInterface -Name $nicName -ResourceGroupName $ResourceGroup -Location $location -IpConfiguration $iPconfig
 $nicId = $nic.Id
 
-DeployVm
+$TrimmedRegKey=$RegistrationKey.Substring(0, $RegistrationKey.LastIndexOf(':'))
+$customData = ""
+$customData += "`r`nModelNumber=$ModelNumber"
+$customData += "`r`nRegistrationKey=$TrimmedRegKey"
+$customData += "`r`nTrackingId=$random"
+
+$secpasswd = ConvertTo-SecureString "StorSim1StorSim1" -AsPlainText -Force
+$cred = New-Object System.Management.Automation.PSCredential ("hcstestuser", $secpasswd)
+
+$vmConfig = New-AzureRmVMConfig -VMName $Name -VMSize $VmSize | `
+    Set-AzureRmVMOperatingSystem -ComputerName $Name -Credential $cred -CustomData $customData -Windows | `
+    Set-AzureRmVMOSDisk -Name "os" -VhdUri ($storageAcc.PrimaryEndpoints.Blob.ToString() + $containerName + "\os.vhd") -CreateOption FromImage | `
+    Add-AzureRmVMDataDisk -Name "datadisk1" -DiskSizeInGB 1023 -VhdUri ($storageAcc.PrimaryEndpoints.Blob.ToString() + $containerName + "\datadisk1.vhd") -CreateOption empty -Lun 0 | `
+    Add-AzureRmVMDataDisk -Name "datadisk2" -DiskSizeInGB 1023 -VhdUri ($storageAcc.PrimaryEndpoints.Blob.ToString() + $containerName + "\datadisk2.vhd") -CreateOption empty -Lun 1 | `
+    Add-AzureRmVMDataDisk -Name "datadisk3" -DiskSizeInGB 1023 -VhdUri ($storageAcc.PrimaryEndpoints.Blob.ToString() + $containerName + "\datadisk3.vhd") -CreateOption empty -Lun 2 | `
+    Add-AzureRmVMDataDisk -Name "datadisk4" -DiskSizeInGB 1023 -VhdUri ($storageAcc.PrimaryEndpoints.Blob.ToString() + $containerName + "\datadisk4.vhd") -CreateOption empty -Lun 3 | `
+    Set-AzureRmVMSourceImage -PublisherName MicrosoftHybridCloudStorage -Offer StorSimple -Skus StorSimple-Garda-8000-Series -Version 9600.17820.170208 | `
+    Add-AzureRmVMNetworkInterface -Id $nicId | Set-AzureRmVMBootDiagnostics -Disable
+
+try {
+    $vm = New-AzureRmVM -ResourceGroupName $ResourceGroup -Location $location -VM $vmConfig
+    
+    PrettyWriter "$Name successfully got created."
+} catch {
+    # Print error details
+    Write-Error $_.Exception.Message
+    break
+}
