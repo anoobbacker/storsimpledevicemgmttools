@@ -24,7 +24,7 @@
      ----------------------------
 .PARAMS 
     SubscriptionId: Input the Subscription ID where the StorSimple 8000 series device manager is deployed.
-    TenantId: Input the ID of the tenant of the subscription. Get using Get-AzureRmSubscription cmdlet.
+    TenantId: Input the ID of the tenant of the subscription. Get using Get-AzureRmSubscription cmdlet or go to the documentation https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-create-service-principal-portal#get-tenant-id.
     DeviceName: Input the name of the StorSimple device on which to create/update the volume.
     ResourceGroupName: Input the name of the resource group on which to create/update the volume.
     ManagerName: Input the name of the resource (StorSimple device manager) on which to create/update the volume.
