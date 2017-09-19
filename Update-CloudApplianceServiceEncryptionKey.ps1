@@ -25,7 +25,7 @@
 .PARAMS 
 
     SubscriptionId: Input the Subscription ID where the StorSimple 8000 series device manager is deployed.
-    TenantId: Input the ID of the tenant of the subscription. Get using Get-AzureRmSubscription cmdlet.
+    TenantId: Input the ID of the tenant of the subscription. Get Tenant ID using Get-AzureRmSubscription cmdlet or go to the documentation https://aka.ms/ss8000-script-tenantid.
     DeviceName: Input the name of the StorSimple device on which to authorize a device to change the service encryption key.
     ResourceGroupName: Input the name of the resource group on which to authorize a device to change the service encryption key.
     ManagerName: Input the name of the resource (StorSimple device manager) on which to authorize a device to change the service encryption key.
