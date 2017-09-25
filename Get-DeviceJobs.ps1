@@ -26,15 +26,21 @@
 
     SubscriptionId: Input the Subscription ID where the StorSimple 8000 series device manager is deployed.
     TenantId: Input the ID of the tenant of the subscription. Get Tenant ID using Get-AzureRmSubscription cmdlet or go to the documentation https://aka.ms/ss8000-script-tenantid.
-    DeviceName: Input the name of the StorSimple device on which to retrieve the StorSimple job(s).
+    
     ResourceGroupName: Input the name of the resource group on which to retrieve the StorSimple job(s).
     ManagerName: Input the name of the resource (StorSimple device manager) on which to retrieve the StorSimple job(s).
+    DeviceName: Input the name of the StorSimple device on which to retrieve the StorSimple job(s).
+    
     FilterByStatus: Input the status of the jobs to be filtered. Valid values are: "Running", "Succeeded", "Failed" or "Canceled".
     FilterByJobType: Input type of the job to be filtered. Valid values are: "ScheduledBackup", "ManualBackup", "RestoreBackup", 
              "CloneVolume", "FailoverVolumeContainers", "CreateLocallyPinnedVolume", "ModifyVolume", "InstallUpdates",
              "SupportPackageLogs", or "CreateCloudAppliance"
     FilterByStartTime: Input the start time of the jobs to be filtered.
     FilterByEndTime: Input the end time of the jobs to be filtered.
+
+    SilentAuthN: Input if you want to go with pop-up or silent authentication.
+    AADAppId: Input application ID for which the service principal was set. Refer https://aka.ms/ss8000-script-sp.
+    AADAppAuthNKey: Input application authentication key for which the AAD application. Refer https://aka.ms/ss8000-script-sp.
 #>
 
 Param
@@ -79,7 +85,7 @@ Param
     [DateTime]
     $FilterByEndTime,
 
-    [parameter(Mandatory = $false, HelpMessage = "Input if you want to go with pop-up or silent authentication.")]
+    [parameter(Mandatory = $false, HelpMessage = "Input if you want to go with pop-up or silent authentication. Refer https://aka.ms/ss8000-script-sp.")]
     [Boolean]
     $SilentAuthN = $false,
 
