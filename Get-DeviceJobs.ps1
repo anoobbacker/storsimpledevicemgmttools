@@ -1,6 +1,6 @@
-﻿<#
+<#
 .DESCRIPTION
-    This scipt reads lists of StorSimple Job(s).
+    This scipt lists the StorSimple Device Manager specific jobs.
 
     Steps to execute the script: 
     ----------------------------
@@ -19,22 +19,28 @@
     
     4.  Download the script from script center. 
             > wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Get-StorSimpleJob.ps1 -Out Get-StorSimpleJob.ps1
-            > .\Get-StorSimpleJob.ps1 -SubscriptionId <subid> -TenantId <tenantid> -ResourceGroupName <resource group> -ManagerName <device manager>
+            > .\Get-StorSimpleJob.ps1 -SubscriptionId [subid] -TenantId [tenant id] -DeviceName [name of device] -ResourceGroupName [name of resource group] -ManagerName[name of device manager] -FilterByStatus [Filter for job status] -FilterByJobType [Filter for job type] -FilterByStartTime [Filter for start date time] -FilterByEndTime [Filter for end date time]
      
      ----------------------------
 .PARAMS 
 
     SubscriptionId: Input the Subscription ID where the StorSimple 8000 series device manager is deployed.
-    TenantId: Input the ID of the tenant of the subscription. Get using Get-AzureRmSubscription cmdlet.
-    DeviceName: Input the name of the StorSimple device on which to retrieve the StorSimple job(s).
+    TenantId: Input the ID of the tenant of the subscription. Get Tenant ID using Get-AzureRmSubscription cmdlet or go to the documentation https://aka.ms/ss8000-script-tenantid.
+    
     ResourceGroupName: Input the name of the resource group on which to retrieve the StorSimple job(s).
     ManagerName: Input the name of the resource (StorSimple device manager) on which to retrieve the StorSimple job(s).
-    status: Input the status of the jobs to be filtered. Valid values are: "Running", "Succeeded", "Failed" or "Canceled".
-    JobType: Input type of the job to be filtered. Valid values are: "ScheduledBackup", "ManualBackup", "RestoreBackup", 
+    DeviceName: Input the name of the StorSimple device on which to retrieve the StorSimple job(s).
+    
+    FilterByStatus: Input the status of the jobs to be filtered. Valid values are: "Running", "Succeeded", "Failed" or "Canceled".
+    FilterByJobType: Input type of the job to be filtered. Valid values are: "ScheduledBackup", "ManualBackup", "RestoreBackup", 
              "CloneVolume", "FailoverVolumeContainers", "CreateLocallyPinnedVolume", "ModifyVolume", "InstallUpdates",
              "SupportPackageLogs", or "CreateCloudAppliance"
-    StartTime: Input the start time of the jobs to be filtered.
-    EndTime: Input the end time of the jobs to be filtered.
+    FilterByStartTime: Input the start time of the jobs to be filtered.
+    FilterByEndTime: Input the end time of the jobs to be filtered.
+
+    SilentAuthN: Input if you want to go with pop-up or silent authentication.
+    AADAppId: Input application ID for which the service principal was set. Refer https://aka.ms/ss8000-script-sp.
+    AADAppAuthNKey: Input application authentication key for which the AAD application. Refer https://aka.ms/ss8000-script-sp.
 #>
 
 Param
@@ -62,22 +68,34 @@ Param
     [parameter(Mandatory = $false, HelpMessage = "Input the status of the jobs to be filtered. Valid values are: Running, Succeeded, Failed or Canceled.")]
     [ValidateSet('Running', 'Succeeded', 'Failed', 'Canceled')]
     [String]
-    $Status,
+    $FilterByStatus,
 
     [parameter(Mandatory = $false, HelpMessage = "Input type of the job to be filtered. Valid values are: ScheduledBackup, ManualBackup, RestoreBackup, 
                CloneVolume, FailoverVolumeContainers, CreateLocallyPinnedVolume, ModifyVolume, InstallUpdates, SupportPackageLogs, or CreateCloudAppliance")]
     [ValidateSet('ScheduledBackup', 'ManualBackup', 'RestoreBackup', 'CloneVolume', 'FailoverVolumeContainers', 'CreateLocallyPinnedVolume', 'ModifyVolume', 
                  'InstallUpdates','SupportPackageLogs','CreateCloudAppliance')]
     [String]
-    $JobType,
+    $FilterByJobType,
 
     [parameter(Mandatory = $false, HelpMessage = "Input the start time of the jobs to be filtered.")]
     [DateTime]
-    $StartTime,
+    $FilterByStartTime,
 
     [parameter(Mandatory = $false, HelpMessage = "Input the end time of the jobs to be filtered.")]
     [DateTime]
-    $EndTime
+    $FilterByEndTime,
+
+    [parameter(Mandatory = $false, HelpMessage = "Input if you want to go with pop-up or silent authentication. Refer https://aka.ms/ss8000-script-sp.")]
+    [Boolean]
+    $SilentAuthN = $false,
+
+    [parameter(Mandatory = $false, HelpMessage = "Input application ID for which the service principal was set. Refer https://aka.ms/ss8000-script-sp.")]
+    [String]
+    $AADAppId,
+
+    [parameter(Mandatory = $false, HelpMessage = "Input application authentication key for which the AAD application. Refer https://aka.ms/ss8000-script-sp.")]
+    [String]
+    $AADAppAuthNKey
 )
 
 # Set Current directory path
@@ -100,8 +118,33 @@ $StorSimple8000SeresePath = Join-Path $ScriptDirectory "Microsoft.Azure.Manageme
 [System.Reflection.Assembly]::LoadFrom($StorSimple8000SeresePath) | Out-Null
 
 # Print methods
-Function PrettyWriter($Content, $Color = "Yellow") { 
+function PrettyWriter($Content, $Color = "Yellow") { 
     Write-Host $Content -Foregroundcolor $Color 
+}
+
+function GenerateQueryFilter() {
+    param([String] $FilterByStatus, [String] $FilterByJobType, [DateTime] $FilterByStartTime, [DateTime] $FilterByEndTime)
+    $queryFilter = ''
+    if ($FilterByStartTime -ne $null) {
+        $queryFilter = "starttime ge '$($FilterByStartTime.ToString('r'))'"
+        if($FilterByEndTime -ne $null) {
+            $queryFilter += " and starttime le '$($FilterByEndTime.ToString('r'))'"
+        }
+    }
+
+    if (!([string]::IsNullOrEmpty($FilterByStatus)) -and $queryFilter.Length -eq 0) {
+        $queryFilter = "status eq '$($FilterByStatus)'"
+    } elseif (!([string]::IsNullOrEmpty($FilterByStatus)) -and $queryFilter.Length -gt 0) {
+        $queryFilter += " and status eq '$($FilterByStatus)'"
+    }
+
+    if (!([string]::IsNullOrEmpty($FilterByJobType)) -and $queryFilter.Length -eq 0) {
+        $queryFilter = "jobtype eq '$($FilterByJobType)'"
+    } elseif (!([string]::IsNullOrEmpty($FilterByJobType)) -and $queryFilter.Length -gt 0) {
+        $queryFilter += " and jobtype eq '$($FilterByJobType)'"
+    }
+
+    return $queryFilter
 }
 
 # Define constant variables (DO NOT CHANGE BELOW VALUES)
@@ -112,38 +155,26 @@ $DomainId = "1950a258-227b-4e31-a9cf-717495945fc2"
 $FrontdoorUri = New-Object System.Uri -ArgumentList $FrontdoorUrl
 $TokenUri = New-Object System.Uri -ArgumentList $TokenUrl
 
-$AADClient = [Microsoft.Rest.Azure.Authentication.ActiveDirectoryClientSettings]::UsePromptOnly($DomainId, $FrontdoorUri)
-
 # Set Synchronization context
 $SyncContext = New-Object System.Threading.SynchronizationContext
 [System.Threading.SynchronizationContext]::SetSynchronizationContext($SyncContext)
 
-# Verify User Credentials
-$Credentials = [Microsoft.Rest.Azure.Authentication.UserTokenProvider]::LoginWithPromptAsync($TenantId, $AADClient).GetAwaiter().GetResult()
+# Verify Credentials
+if ( $SilentAuthN ) {
+    $Credentials =[Microsoft.Rest.Azure.Authentication.ApplicationTokenProvider]::LoginSilentAsync($TenantId, $AADAppId, $AADAppAuthNKey).GetAwaiter().GetResult();
+} else {
+    $AADClient = [Microsoft.Rest.Azure.Authentication.ActiveDirectoryClientSettings]::UsePromptOnly($DomainId, $FrontdoorUri)
+    $Credentials = [Microsoft.Rest.Azure.Authentication.UserTokenProvider]::LoginWithPromptAsync($TenantId, $AADClient).GetAwaiter().GetResult()
+}
+
+# Get StorSimpleClient instance
 $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.StorSimple8000SeriesManagementClient -ArgumentList $TokenUri, $Credentials
 
 # Set SubscriptionId
 $StorSimpleClient.SubscriptionId = $SubscriptionId
 
-$filter = ''
-if ($StartTime -ne $null) {
-    $filter = "starttime ge '$($StartTime.ToString('r'))'"
-    if($EndTime -ne $null) {
-        $filter += " and starttime le '$($EndTime.ToString('r'))'"
-    }
-}
-
-if (!([string]::IsNullOrEmpty($Status)) -and $filter.Length -eq 0) {
-    $filter = "status eq '$($Status)'"
-} elseif (!([string]::IsNullOrEmpty($Status)) -and $filter.Length -gt 0) {
-    $filter += " and status eq '$($Status)'"
-}
-
-if (!([string]::IsNullOrEmpty($JobType)) -and $filter.Length -eq 0) {
-    $filter = "jobtype eq '$($JobType)'"
-} elseif (!([string]::IsNullOrEmpty($JobType)) -and $filter.Length -gt 0) {
-    $filter += " and jobtype eq '$($JobType)'"
-}
+# Generate the query filter
+$filter = GenerateQueryFilter $FilterByStatus  $FilterByJobType $FilterByStartTime $FilterByEndTime
 
 # Get backups by Device
 try {
