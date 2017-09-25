@@ -1,6 +1,6 @@
 <#
 .DESCRIPTION
-    This scipt reads lists of StorSimple Job(s).
+    This scipt lists the StorSimple Device Manager specific jobs.
 
     Steps to execute the script: 
     ----------------------------
