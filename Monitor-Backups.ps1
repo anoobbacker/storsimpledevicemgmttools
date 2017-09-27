@@ -5,20 +5,20 @@
     Steps to execute the script: 
     ----------------------------
     1.  Open powershell, create a new folder & change directory to the folder.
-            > mkdir C:\scripts\StorSimpleSDKTools
-            > cd C:\scripts\StorSimpleSDKTools
+            mkdir C:\scripts\StorSimpleSDKTools
+            cd C:\scripts\StorSimpleSDKTools
     
     2.  Download nuget CLI under the same folder in Step1.
         Various versions of nuget.exe are available on nuget.org/downloads. Each download link points directly to an .exe file, so be sure to right-click and save the file to your computer rather than running it from the browser. 
-            > wget https://dist.nuget.org/win-x86-commandline/latest/nuget.exe -Out :\scripts\StorSimpleSDKTools\nuget.exe
+            wget https://dist.nuget.org/win-x86-commandline/latest/nuget.exe -Out C:\scripts\StorSimpleSDKTools\nuget.exe
     
     3.  Download the dependent SDK
-            > C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Azure.Management.Storsimple8000series
-            > C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.IdentityModel.Clients.ActiveDirectory -Version 2.28.3
-            > C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Rest.ClientRuntime.Azure.Authentication -Version 2.2.9-preview
+            C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Azure.Management.Storsimple8000series
+            C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.IdentityModel.Clients.ActiveDirectory -Version 2.28.3
+            C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Rest.ClientRuntime.Azure.Authentication -Version 2.2.9-preview
     
     4.  Download the script from github. 
-            > wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Monitor-Backup.ps1 -Out Monitor-Backup.ps1
+            wget https://raw.githubusercontent.com/anoobbacker/storsimpledevicemgmttools/master/Monitor-Backups.ps1 -Out Monitor-Backup.ps1
      
     5. Create an Azure automation account with Azure RunAs Account. Refer https://docs.microsoft.com/azure/automation/automation-create-standalone-account. 
     
@@ -28,9 +28,10 @@
 
             # set 
             $downloadDir = "C:\scripts\StorSimpleSDKTools"
+            $moduleDir = "$downloadDir\AutomationModule\Microsoft.Azure.Management.StorSimple8000Series"
 
             #don't change the folder name "Microsoft.Azure.Management.StorSimple8000Series"
-            mkdir "$downloadDir\AutomationModule\Microsoft.Azure.Management.StorSimple8000Series"
+            mkdir "$moduleDir"
             copy "$downloadDir\Microsoft.IdentityModel.Clients.ActiveDirectory.2.28.3\lib\net45\Microsoft.IdentityModel.Clients.ActiveDirectory*.dll" $moduleDir
             copy "$downloadDir\Microsoft.Rest.ClientRuntime.Azure.3.3.7\lib\net452\Microsoft.Rest.ClientRuntime.Azure*.dll" $moduleDir
             copy "$downloadDir\Microsoft.Rest.ClientRuntime.2.3.8\lib\net452\Microsoft.Rest.ClientRuntime*.dll" $moduleDir
@@ -39,7 +40,7 @@
             copy "$downloadDir\Microsoft.Azure.Management.Storsimple8000series.1.0.0\lib\net452\Microsoft.Azure.Management.Storsimple8000series*.dll" $moduleDir
 
             #Don't change the name of the Archive
-            compress-Archive -Path "$downloadDir\AutomationModule\Microsoft.Azure.Management.StorSimple8000Series" -DestinationPath Microsoft.Azure.Management.StorSimple8000Series.zip
+            compress-Archive -Path "$moduleDir" -DestinationPath Microsoft.Azure.Management.StorSimple8000Series.zip
 
     7. Import the Azure Automation module zip file (Microsoft.Azure.Management.StorSimple8000Series.zip) created in above step. This can be done by selecting the Automation Account, click "Modules" under SHARED RESOURCES and then click "Add a module". 
 
