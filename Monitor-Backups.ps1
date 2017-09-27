@@ -178,7 +178,12 @@ function EnumerateJobs()
 }
 
 $SLEEPTIMEOUT = 10    # Value in seconds
-$BaseUrl = "https://management.azure.com"
+$BaseUrl = "https://management.azure.com" #Run '(Get-AzureRmEnvironment).ResourceManagerUrl' get the Fairfax url.
+
+if (!(Get-Command Get-AutomationConnection -errorAction SilentlyContinue))
+{
+    throw "You cannot running the script in an Windows Powershell. Import this into Azure automation account and execute."  
+}
 
 $ServicePrincipalConnection = Get-AutomationConnection -Name AzureRunAsConnection
 if ($ServicePrincipalConnection -eq $null)  { 
