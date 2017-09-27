@@ -18,7 +18,7 @@
             C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Rest.ClientRuntime.Azure.Authentication -Version 2.2.9-preview
     
     4.  Download the script from github. 
-            wget https://raw.githubusercontent.com/anoobbacker/storsimpledevicemgmttools/master/Monitor-Backups.ps1 -Out Monitor-Backup.ps1
+            wget https://raw.githubusercontent.com/anoobbacker/storsimpledevicemgmttools/master/Monitor-Backups.ps1 -Out Monitor-Backups.ps1
      
     5. Create an Azure automation account with Azure RunAs Account. Refer https://docs.microsoft.com/azure/automation/automation-create-standalone-account. 
     
@@ -26,7 +26,7 @@
 
     6. Create an Azure Automation Runbook Module for StorSimple 8000 Series device management. Use the below commands to create a Automation module zip file.
 
-            # set 
+            # set path variables
             $downloadDir = "C:\scripts\StorSimpleSDKTools"
             $moduleDir = "$downloadDir\AutomationModule\Microsoft.Azure.Management.StorSimple8000Series"
 
