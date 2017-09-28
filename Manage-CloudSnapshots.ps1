@@ -33,9 +33,15 @@
     BackupPolicyName: Input the name of the Backup policy to use to create the cloud snapshot.
     RetentionInDays: Input the days of the retention to use to delete the older backups. Default value 20 days.
     
-    SilentAuthN: Input if you want to go with pop-up or silent authentication.
+    AuthNType: Input if you want to go with username, AAD authentication key or certificate. Refer https://aka.ms/ss8000-script-sp. 
+        Possible values: [UserNamePassword, AuthenticationKey, Certificate]
+
     AADAppId: Input application ID for which the service principal was set. Refer https://aka.ms/ss8000-script-sp.
+
     AADAppAuthNKey: Input application authentication key for which the AAD application. Refer https://aka.ms/ss8000-script-sp.
+
+    AADAppAuthNCertPath: Input the service principal certificate for the AAD application. Refer https://aka.ms/ss8000-script-spcert.
+    AADAppAuthNCertPassword: Input the service principal ceritifcate password for the AAD application. Refer https://aka.ms/ss8000-script-spcert.
 
     WhatIf: Input the WhatIf arg as $true if you want to see what changes the script will make. Possible values [$false, $true]
 #>
@@ -70,9 +76,10 @@ Param
     [string]
     $RetentionInDays = 20,
 
-    [parameter(Mandatory = $false, HelpMessage = "Input if you want to go with pop-up or silent authentication. Refer https://aka.ms/ss8000-script-sp.")]
-    [Boolean]
-    $SilentAuthN = $false,
+    [parameter(Mandatory = $false, HelpMessage = "Input if you want to go with username, AAD authentication key or certificate. Refer https://aka.ms/ss8000-script-sp.")]
+    [ValidateSet('UserNamePassword', 'AuthenticationKey', 'Certificate')]
+    [String]
+    $AuthNType = 'UserNamePassword',
 
     [parameter(Mandatory = $false, HelpMessage = "Input application ID for which the service principal was set. Refer https://aka.ms/ss8000-script-sp.")]
     [String]
@@ -81,6 +88,14 @@ Param
     [parameter(Mandatory = $false, HelpMessage = "Input application authentication key for which the AAD application. Refer https://aka.ms/ss8000-script-sp.")]
     [String]
     $AADAppAuthNKey,
+
+    [parameter(Mandatory = $false, HelpMessage = "Input the service principal certificate for the AAD application.")]
+    [String]
+    $AADAppAuthNCertPath,
+
+    [parameter(Mandatory = $false, HelpMessage = "Input the service principal ceritifcate password for the AAD application.")]
+    [String]
+    $AADAppAuthNCertPassword,    
 
     [parameter(Mandatory = $false, HelpMessage = "Input the WhatIf arg if you want to see what changes the script will make.")]
     [ValidateSet($true, $false)]
@@ -91,21 +106,13 @@ Param
 # Set Current directory path
 $ScriptDirectory = (Get-Location).Path
 
-#Set dll path
-$ActiveDirectoryPath = Join-Path $ScriptDirectory "Microsoft.IdentityModel.Clients.ActiveDirectory.2.28.3\lib\net45\Microsoft.IdentityModel.Clients.ActiveDirectory.dll"
-$ClientRuntimeAzurePath = Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.Azure.3.3.7\lib\net452\Microsoft.Rest.ClientRuntime.Azure.dll"
-$ClientRuntimePath = Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.2.3.8\lib\net452\Microsoft.Rest.ClientRuntime.dll"
-$NewtonsoftJsonPath = Join-Path $ScriptDirectory "Newtonsoft.Json.6.0.8\lib\net45\Newtonsoft.Json.dll"
-$AzureAuthenticationPath = Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.Azure.Authentication.2.2.9-preview\lib\net45\Microsoft.Rest.ClientRuntime.Azure.Authentication.dll"
-$StorSimple8000SeresePath = Join-Path $ScriptDirectory "Microsoft.Azure.Management.Storsimple8000series.1.0.0\lib\net452\Microsoft.Azure.Management.Storsimple8000series.dll"
-
 #Load all required assemblies
-[System.Reflection.Assembly]::LoadFrom($ActiveDirectoryPath) | Out-Null
-[System.Reflection.Assembly]::LoadFrom($ClientRuntimeAzurePath) | Out-Null
-[System.Reflection.Assembly]::LoadFrom($ClientRuntimePath) | Out-Null
-[System.Reflection.Assembly]::LoadFrom($NewtonsoftJsonPath) | Out-Null
-[System.Reflection.Assembly]::LoadFrom($AzureAuthenticationPath) | Out-Null
-[System.Reflection.Assembly]::LoadFrom($StorSimple8000SeresePath) | Out-Null
+[System.Reflection.Assembly]::LoadFrom((Join-Path $ScriptDirectory "Microsoft.IdentityModel.Clients.ActiveDirectory.2.28.3\lib\net45\Microsoft.IdentityModel.Clients.ActiveDirectory.dll")) | Out-Null
+[System.Reflection.Assembly]::LoadFrom((Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.Azure.3.3.7\lib\net452\Microsoft.Rest.ClientRuntime.Azure.dll")) | Out-Null
+[System.Reflection.Assembly]::LoadFrom((Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.2.3.8\lib\net452\Microsoft.Rest.ClientRuntime.dll")) | Out-Null
+[System.Reflection.Assembly]::LoadFrom((Join-Path $ScriptDirectory "Newtonsoft.Json.6.0.8\lib\net45\Newtonsoft.Json.dll")) | Out-Null
+[System.Reflection.Assembly]::LoadFrom((Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.Azure.Authentication.2.2.9-preview\lib\net45\Microsoft.Rest.ClientRuntime.Azure.Authentication.dll")) | Out-Null
+[System.Reflection.Assembly]::LoadFrom((Join-Path $ScriptDirectory "Microsoft.Azure.Management.Storsimple8000series.1.0.0\lib\net452\Microsoft.Azure.Management.Storsimple8000series.dll")) | Out-Null
 
 # Print methods
 Function PrettyWriter($Content, $Color = "Yellow") { 
@@ -117,37 +124,60 @@ $FrontdoorUrl = "urn:ietf:wg:oauth:2.0:oob"
 $TokenUrl = "https://management.azure.com"
 $DomainId = "1950a258-227b-4e31-a9cf-717495945fc2"
 
-$FrontdoorUri = New-Object System.Uri -ArgumentList $FrontdoorUrl
-$TokenUri = New-Object System.Uri -ArgumentList $TokenUrl
-
-$AADClient = [Microsoft.Rest.Azure.Authentication.ActiveDirectoryClientSettings]::UsePromptOnly($DomainId, $FrontdoorUri)
-
-# Set Synchronization context
-$SyncContext = New-Object System.Threading.SynchronizationContext
-[System.Threading.SynchronizationContext]::SetSynchronizationContext($SyncContext)
-
-# Verify Credentials
-if ($SilentAuthN) {
-    $Credentials =[Microsoft.Rest.Azure.Authentication.ApplicationTokenProvider]::LoginSilentAsync($TenantId, $AADAppId, $AADAppAuthNKey).GetAwaiter().GetResult();
-} else {
-    $AADClient = [Microsoft.Rest.Azure.Authentication.ActiveDirectoryClientSettings]::UsePromptOnly($DomainId, $FrontdoorUri)
-    $Credentials = [Microsoft.Rest.Azure.Authentication.UserTokenProvider]::LoginWithPromptAsync($TenantId, $AADClient).GetAwaiter().GetResult()
-}
-
-# Get StorSimpleClient instance
-$StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.StorSimple8000SeriesManagementClient -ArgumentList $TokenUri, $Credentials
-
-# Set SubscriptionId
-$StorSimpleClient.SubscriptionId = $SubscriptionId
-
-# Set backup expiration date
-$Today = Get-Date
-$ExpirationDate = $Today.AddDays(-$RetentionInDays)
-
-# Set backup type (CloudSnapshot)
-$BackupType = 'CloudSnapshot'
-
 try {
+    $FrontdoorUri = New-Object System.Uri -ArgumentList $FrontdoorUrl
+    $TokenUri = New-Object System.Uri -ArgumentList $TokenUrl
+
+    $AADClient = [Microsoft.Rest.Azure.Authentication.ActiveDirectoryClientSettings]::UsePromptOnly($DomainId, $FrontdoorUri)
+
+    # Set Synchronization context
+    $SyncContext = New-Object System.Threading.SynchronizationContext
+    [System.Threading.SynchronizationContext]::SetSynchronizationContext($SyncContext)
+
+    # Verify Credentials
+    if ("UserNamePassword".Equals($AuthNType)) {    
+        # Username password
+        $AADClient = [Microsoft.Rest.Azure.Authentication.ActiveDirectoryClientSettings]::UsePromptOnly($DomainId, $FrontdoorUri)
+        $Credentials = [Microsoft.Rest.Azure.Authentication.UserTokenProvider]::LoginWithPromptAsync($TenantId, $AADClient).GetAwaiter().GetResult()
+    } elseif ("AuthenticationKey".Equals($AuthNType) ) {
+        if ( [string]::IsNullOrEmpty($AADAppId) -or [string]::IsNullOrEmpty($AADAppAuthNKey) ) {
+            throw "Invalid inputs! Ensure that you input the arguments -AADAppId and -AADAppAuthNKey."
+        }
+        #AAD Application authentication key
+        $Credentials =[Microsoft.Rest.Azure.Authentication.ApplicationTokenProvider]::LoginSilentAsync($TenantId, $AADAppId, $AADAppAuthNKey).GetAwaiter().GetResult();
+    } elseif ("Certificate".Equals($AuthNType) ) {
+        #AAD Service Principal Certificates
+        if ( [string]::IsNullOrEmpty($AADAppId) -or [string]::IsNullOrEmpty($AADAppAuthNCertPassword) -or [string]::IsNullOrEmpty($AADAppAuthNCertPath) ) {
+            throw "Invalid inputs! Ensure that you input the arguments -AADAppId, -AADAppAuthNCertPath and -AADAppAuthNCertPassword."
+        }    
+        if ( !(Test-Path $AADAppAuthNCertPath) ) {
+            throw "Certificate file $AADAppAuthNCertPath couldn't found!"    
+        }
+        $CertPassword = ConvertTo-SecureString $AADAppAuthNCertPassword -AsPlainText -Force
+        $ClientCertificate = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2 -ArgumentList @($AADAppAuthNCertPath, $CertPassword)
+        
+        $ClientAssertionCertificate = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.ClientAssertionCertificate -ArgumentList $AADAppId, $ClientCertificate
+        
+        $Credentials = [Microsoft.Rest.Azure.Authentication.ApplicationTokenProvider]::LoginSilentWithCertificateAsync($TenantId, $ClientAssertionCertificate).GetAwaiter().GetResult()
+    }
+
+    if ($Credentials -eq $null) {
+        throw "Failed to authenticate!"
+    }
+
+    # Get StorSimpleClient instance
+    $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.StorSimple8000SeriesManagementClient -ArgumentList $TokenUri, $Credentials
+
+    # Set SubscriptionId
+    $StorSimpleClient.SubscriptionId = $SubscriptionId
+
+    # Set backup expiration date
+    $Today = Get-Date
+    $ExpirationDate = $Today.AddDays(-$RetentionInDays)
+
+    # Set backup type (CloudSnapshot)
+    $BackupType = 'CloudSnapshot'
+
     Write-Output "Starting start a manual backup."
 
     if ( $WhatIf ) 
@@ -161,57 +191,49 @@ try {
             Write-Output $Result.Exception
             break
         }
+        PrettyWriter "Successfully started the manual backup job."
     }
 
-    PrettyWriter "Successfully started the manual backup job."
-}
-catch {
-    # Print error details
-    Write-Error $_.Exception.Message
-    break
-}
+    $CompletedSnapshots =@()
 
-$CompletedSnapshots =@()
-
-# Get all backups by Device
-try {
+    # Get all backups by Device
     $CompletedSnapshots = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::ListByDevice($StorSimpleClient.Backups, $DeviceName, $ResourceGroupName, $ManagerName)
-}
-catch {
-    # Print error details
-    Write-Error $_.Exception.Message
-    break
-}
 
-Write-Output "Find the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them."
-foreach ($Snapshot in $CompletedSnapshots) 
-{
-    $SnapShotName = $SnapShot.Name
-    $SnapshotStartTimeStamp = $Snapshot.CreatedOn
-    if ($SnapshotStartTimeStamp -lt $ExpirationDate)
+    Write-Output "Find the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them."
+    foreach ($Snapshot in $CompletedSnapshots) 
     {
-        try {
-            if ( $WhatIf ) 
-            {
-                PrettyWriter "WhatIf: Trigger delete of snapshot $($SnapShotName) which was created on $($SnapshotStartTimeStamp)" "Red"
-            }
-            else 
-            {
-                PrettyWriter "Deleting $($SnapShotName) which was created on $($SnapshotStartTimeStamp)."
-                $Result = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::DeleteAsync($StorSimpleClient.Backups, $DeviceName, $SnapShotName, $ResourceGroupName, $ManagerName)
-                if ($Result -ne $null -and $Result.IsFaulted) {
-                    Write-Error $Result.Exception
+        $SnapShotName = $SnapShot.Name
+        $SnapshotStartTimeStamp = $Snapshot.CreatedOn
+        if ($SnapshotStartTimeStamp -lt $ExpirationDate)
+        {
+            try {
+                if ( $WhatIf ) 
+                {
+                    PrettyWriter "WhatIf: Trigger delete of snapshot $($SnapShotName) which was created on $($SnapshotStartTimeStamp)" "Red"
+                }
+                else 
+                {
+                    PrettyWriter "Deleting $($SnapShotName) which was created on $($SnapshotStartTimeStamp)."
+                    $Result = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::DeleteAsync($StorSimpleClient.Backups, $DeviceName, $SnapShotName, $ResourceGroupName, $ManagerName)
+                    if ($Result -ne $null -and $Result.IsFaulted) {
+                        Write-Error $Result.Exception
+                    }
                 }
             }
+            catch {
+                # Print error details
+                Write-Error $_.Exception.Message
+                break
+            } 
         }
-        catch {
-            # Print error details
-            Write-Error $_.Exception.Message
-            break
-        } 
-    }
-    else
-    {
-        #Write-Output "Skipping $SnapShotName at $SnapshotStartTimeStamp"
-    }
+        else
+        {
+            #Write-Output "Skipping $SnapShotName at $SnapshotStartTimeStamp"
+        }
+    }    
+}
+catch {
+    # Print error details
+    Write-Error $_.Exception.Message
+    exit
 }
