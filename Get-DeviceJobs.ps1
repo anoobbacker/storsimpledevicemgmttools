@@ -1,6 +1,6 @@
 <#
 .DESCRIPTION
-    This scipt lists the StorSimple Device Manager specific jobs.
+    This scipt reads lists of StorSimple Job(s).
 
     Steps to execute the script: 
     ----------------------------
@@ -18,8 +18,8 @@
             > C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Rest.ClientRuntime.Azure.Authentication -Version 2.2.9-preview
     
     4.  Download the script from script center. 
-            > wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Get-StorSimpleJob.ps1 -Out Get-StorSimpleJob.ps1
-            > .\Get-StorSimpleJob.ps1 -SubscriptionId [subid] -TenantId [tenant id] -DeviceName [name of device] -ResourceGroupName [name of resource group] -ManagerName[name of device manager] -FilterByStatus [Filter for job status] -FilterByJobType [Filter for job type] -FilterByStartTime [Filter for start date time] -FilterByEndTime [Filter for end date time]
+            > wget https://raw.githubusercontent.com/anoobbacker/storsimpledevicemgmttools/master/Get-DeviceJobs.ps1 -Out Get-DeviceJobs.ps1
+            > .\Get-DeviceJobs.ps1 -SubscriptionId [subid] -TenantId [tenant id] -DeviceName [name of device] -ResourceGroupName [name of resource group] -ManagerName[name of device manager] -FilterByStatus [Filter for job status] -FilterByJobType [Filter for job type] -FilterByStartTime [Filter for start date time] -FilterByEndTime [Filter for end date time]
      
      ----------------------------
 .PARAMS 
@@ -79,11 +79,11 @@ Param
 
     [parameter(Mandatory = $false, HelpMessage = "Input the start time of the jobs to be filtered.")]
     [DateTime]
-    $FilterByStartTime,
+    $FilterByStartTime = (get-date).AddDays(-7),
 
     [parameter(Mandatory = $false, HelpMessage = "Input the end time of the jobs to be filtered.")]
     [DateTime]
-    $FilterByEndTime,
+    $FilterByEndTime = (get-date),
 
     [parameter(Mandatory = $false, HelpMessage = "Input if you want to go with pop-up or silent authentication. Refer https://aka.ms/ss8000-script-sp.")]
     [Boolean]
@@ -118,11 +118,11 @@ $StorSimple8000SeresePath = Join-Path $ScriptDirectory "Microsoft.Azure.Manageme
 [System.Reflection.Assembly]::LoadFrom($StorSimple8000SeresePath) | Out-Null
 
 # Print methods
-function PrettyWriter($Content, $Color = "Yellow") { 
+Function PrettyWriter($Content, $Color = "Yellow") { 
     Write-Host $Content -Foregroundcolor $Color 
 }
 
-function GenerateQueryFilter() {
+Function GenerateQueryFilter() {
     param([String] $FilterByStatus, [String] $FilterByJobType, [DateTime] $FilterByStartTime, [DateTime] $FilterByEndTime)
     $queryFilter = ''
     if ($FilterByStartTime -ne $null) {
@@ -174,7 +174,7 @@ $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.S
 $StorSimpleClient.SubscriptionId = $SubscriptionId
 
 # Generate the query filter
-$filter = GenerateQueryFilter $FilterByStatus  $FilterByJobType $FilterByStartTime $FilterByEndTime
+$filter = GenerateQueryFilter $FilterByStatus $FilterByJobType $FilterByStartTime $FilterByEndTime
 
 # Get backups by Device
 try {
