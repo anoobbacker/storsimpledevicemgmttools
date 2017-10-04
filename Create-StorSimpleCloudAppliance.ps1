@@ -9,12 +9,12 @@
     Steps to execute the script: 
     ----------------------------
     1.  Open powershell, create a new folder & change directory to the folder.
-            > mkdir C:\scripts\StorSimpleSDKTools
-            > cd C:\scripts\StorSimpleSDKTools
+            mkdir C:\scripts\StorSimpleSDKTools
+            cd C:\scripts\StorSimpleSDKTools
     
     2. Download & execute the script from github. 
-            > wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Create-StorSimpleCloudAppliance.ps1 -Out Authorize-ServiceEncryptionRollover.ps1
-            > .\Create-StorSimpleCloudAppliance.ps1 -CloudEnv [AzureCloud| -SubscriptionId [subcription id] -ResourceGroup [resource group] -Name [appliance name] -ModelNumber [8010|8020] -VirtualNetwork [vnet] -Subnet [subnet] -StorageAccount [storage name] -VmSize [vmsize] -RegistrationKey [key]
+            wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Create-StorSimpleCloudAppliance.ps1 -Out Authorize-ServiceEncryptionRollover.ps1
+            .\Create-StorSimpleCloudAppliance.ps1 -CloudEnv [AzureCloud| -SubscriptionId [subcription id] -ResourceGroup [resource group] -Name [appliance name] -ModelNumber [8010|8020] -VirtualNetwork [vnet] -Subnet [subnet] -StorageAccount [storage name] -VmSize [vmsize] -RegistrationKey [key]
      ----------------------------   
 
 .PARAMS
@@ -102,7 +102,7 @@ function ValidateInputs()
     }
 }
 
-# Print methods
+# Print method
 Function PrettyWriter($Content, $Color = "Yellow") { 
     Write-Host $Content -Foregroundcolor $Color 
 }
@@ -117,7 +117,7 @@ $AzureRmCtx = Set-AzureRmContext -SubscriptionId $SubscriptionId
 $vnet = Get-AzureRmVirtualNetwork -Name $VirtualNetwork -ResourceGroupName $ResourceGroup
 $storageAcc = Get-AzureRmStorageAccount -Name $StorageAccount -ResourceGroupName $ResourceGroup
 
-#Validate
+# Validate
 ValidateInputs
 
 $location = $vnet.Location
