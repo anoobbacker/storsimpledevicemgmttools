@@ -73,7 +73,7 @@ param
     $NumberOfDaysForReport
 )
 
-function GenerateFilterODataQuery()
+Function GenerateFilterODataQuery()
 {
     Param
     (
@@ -99,7 +99,7 @@ function GenerateFilterODataQuery()
     return $filter
 }
 
-function GetDurationTime()
+Function GetDurationTime()
 {
     param
     (
@@ -142,7 +142,7 @@ function GetDurationTime()
     return $durationInString
 }
 
-function EnumerateJobs()
+Function EnumerateJobs()
 {
     Param
     (
@@ -178,7 +178,7 @@ function EnumerateJobs()
 }
 
 $SLEEPTIMEOUT = 10    # Value in seconds
-$BaseUrl = "https://management.azure.com" #Run '(Get-AzureRmEnvironment).ResourceManagerUrl' get the Fairfax url.
+$BaseUrl = "https://management.azure.com"   # Run 'Get-AzureRmEnvironment | Select-Object Name, ResourceManagerUrl' cmdlet to get the Fairfax url.
 
 if (!(Get-Command Get-AutomationConnection -errorAction SilentlyContinue))
 {
@@ -229,7 +229,7 @@ $BaseUri = New-Object System.Uri -ArgumentList $BaseUrl
 
 $ClientAssertionCertificate = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.ClientAssertionCertificate -ArgumentList $ClientId, $ClientCertificate
 
-# Verify User Credentials
+# Verify Credentials
 Write-Verbose "Connecting to Azure [SubscriptionId = $SubscriptionId][TenantID = $TenantId][ApplicationID = $ClientId][Certificate = $ClientCertificate.Subject]"
 $Credentials = [Microsoft.Rest.Azure.Authentication.ApplicationTokenProvider]::LoginSilentWithCertificateAsync($TenantId, $ClientAssertionCertificate).GetAwaiter().GetResult()
 if ($Credentials -eq $null) {
@@ -278,7 +278,7 @@ foreach ($BackupPolicy in $BackupPolicies) {
 # Generate oDataQuery based on JobStatus & Duration
 $oDataQuery = GenerateFilterODataQuery 'Failed' $NumberOfDaysForReport
 
-# Get all device jobs alon with query filter
+# Get all device jobs along with query filter
 try {
     $FailedJobs = [Microsoft.Azure.Management.StorSimple8000Series.JobsOperationsExtensions]::ListByDevice($StorSimpleClient.Jobs, $DeviceName, $ResourceGroupName, $ManagerName, $oDataQuery)
 } catch {
@@ -293,7 +293,7 @@ if ($FailedJobs -ne $null -and $FailedJobs.Length -gt 0) {
 # Generate oDataQuery based on JobStatus & Duration
 $oDataQuery = GenerateFilterODataQuery 'Running' $NumberOfDaysForReport
 
-# Get all device jobs alon with query filter
+# Get all device jobs along with query filter
 try {
     $RunningJobs += [Microsoft.Azure.Management.StorSimple8000Series.JobsOperationsExtensions]::ListByDevice($StorSimpleClient.Jobs, $DeviceName, $ResourceGroupName, $ManagerName, $oDataQuery)
 } catch {
@@ -308,7 +308,7 @@ if ($RunningJobs -ne $null -and $RunningJobs.Length -gt 0) {
 # Generate oDataQuery based on JobStatus & Duration
 $oDataQuery = GenerateFilterODataQuery 'Succeeded' $NumberOfDaysForReport
 
-# Get all device jobs alon with query filter
+# Get all device jobs along with query filter
 try {
     $SucceededJobs = [Microsoft.Azure.Management.StorSimple8000Series.JobsOperationsExtensions]::ListByDevice($StorSimpleClient.Jobs, $DeviceName, $ResourceGroupName, $ManagerName, $oDataQuery)
 } catch {

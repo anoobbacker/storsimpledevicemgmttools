@@ -19,7 +19,7 @@
     
     4.  Download the script from script center. 
             wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Manage-CloudSnapshots.ps1 -Out Manage-CloudSnapshots.ps1
-            .\Manage-CloudSnapshots.ps1 -SubscriptionId <subid> -TenantId <tenantid> -ResourceGroupName <resource group> -ManagerName <device manager> -DeviceName <device name> -BackupPolicyName <backup policy name> -RetentionInDays <retention days> -SilentAuthN <$true/$false> -AADAppId <AAD app Id> -AADAppAuthNKey <AAD App Auth Key> -WhatIf <$true/$false>
+            .\Manage-CloudSnapshots.ps1 -SubscriptionId [subid] -TenantId [tenantid] -ResourceGroupName [resource group] -ManagerName [device manager] -DeviceName [device name] -BackupPolicyName [backup policy name] -RetentionInDays [retention days] -AuthNType [Type of auth] -AADAppId [AAD app Id] -AADAppAuthNKey [AAD App Auth Key] -WhatIf [$true/$false]
      
      ----------------------------
 .PARAMS 
@@ -106,7 +106,7 @@ Param
 # Set Current directory path
 $ScriptDirectory = (Get-Location).Path
 
-#Load all required assemblies
+# Load all required assemblies
 [System.Reflection.Assembly]::LoadFrom((Join-Path $ScriptDirectory "Microsoft.IdentityModel.Clients.ActiveDirectory.2.28.3\lib\net45\Microsoft.IdentityModel.Clients.ActiveDirectory.dll")) | Out-Null
 [System.Reflection.Assembly]::LoadFrom((Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.Azure.3.3.7\lib\net452\Microsoft.Rest.ClientRuntime.Azure.dll")) | Out-Null
 [System.Reflection.Assembly]::LoadFrom((Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.2.3.8\lib\net452\Microsoft.Rest.ClientRuntime.dll")) | Out-Null
@@ -114,21 +114,19 @@ $ScriptDirectory = (Get-Location).Path
 [System.Reflection.Assembly]::LoadFrom((Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.Azure.Authentication.2.2.9-preview\lib\net45\Microsoft.Rest.ClientRuntime.Azure.Authentication.dll")) | Out-Null
 [System.Reflection.Assembly]::LoadFrom((Join-Path $ScriptDirectory "Microsoft.Azure.Management.Storsimple8000series.1.0.0\lib\net452\Microsoft.Azure.Management.Storsimple8000series.dll")) | Out-Null
 
-# Print methods
+# Print method
 Function PrettyWriter($Content, $Color = "Yellow") { 
     Write-Host $Content -Foregroundcolor $Color 
 }
 
 # Define constant variables (DO NOT CHANGE BELOW VALUES)
 $FrontdoorUrl = "urn:ietf:wg:oauth:2.0:oob"
-$TokenUrl = "https://management.azure.com"
+$TokenUrl = "https://management.azure.com"   # Run 'Get-AzureRmEnvironment | Select-Object Name, ResourceManagerUrl' cmdlet to get the Fairfax url.
 $DomainId = "1950a258-227b-4e31-a9cf-717495945fc2"
 
 try {
     $FrontdoorUri = New-Object System.Uri -ArgumentList $FrontdoorUrl
     $TokenUri = New-Object System.Uri -ArgumentList $TokenUrl
-
-    $AADClient = [Microsoft.Rest.Azure.Authentication.ActiveDirectoryClientSettings]::UsePromptOnly($DomainId, $FrontdoorUri)
 
     # Set Synchronization context
     $SyncContext = New-Object System.Threading.SynchronizationContext
@@ -140,13 +138,14 @@ try {
         $AADClient = [Microsoft.Rest.Azure.Authentication.ActiveDirectoryClientSettings]::UsePromptOnly($DomainId, $FrontdoorUri)
         $Credentials = [Microsoft.Rest.Azure.Authentication.UserTokenProvider]::LoginWithPromptAsync($TenantId, $AADClient).GetAwaiter().GetResult()
     } elseif ("AuthenticationKey".Equals($AuthNType) ) {
+        # AAD Application authentication key
         if ( [string]::IsNullOrEmpty($AADAppId) -or [string]::IsNullOrEmpty($AADAppAuthNKey) ) {
             throw "Invalid inputs! Ensure that you input the arguments -AADAppId and -AADAppAuthNKey."
         }
-        #AAD Application authentication key
+
         $Credentials =[Microsoft.Rest.Azure.Authentication.ApplicationTokenProvider]::LoginSilentAsync($TenantId, $AADAppId, $AADAppAuthNKey).GetAwaiter().GetResult();
     } elseif ("Certificate".Equals($AuthNType) ) {
-        #AAD Service Principal Certificates
+        # AAD Service Principal Certificates
         if ( [string]::IsNullOrEmpty($AADAppId) -or [string]::IsNullOrEmpty($AADAppAuthNCertPassword) -or [string]::IsNullOrEmpty($AADAppAuthNCertPath) ) {
             throw "Invalid inputs! Ensure that you input the arguments -AADAppId, -AADAppAuthNCertPath and -AADAppAuthNCertPassword."
         }    
