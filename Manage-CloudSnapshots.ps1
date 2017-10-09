@@ -119,6 +119,35 @@ Function PrettyWriter($Content, $Color = "Yellow") {
     Write-Host $Content -Foregroundcolor $Color 
 }
 
+# Create a query filter
+Function GenerateBackupFilter() {
+    param([String] $FilterByEntityId, [DateTime] $FilterByStartTime, [DateTime] $FilterByEndTime)
+    $queryFilter = $null
+    if ($FilterByStartTime -ne $null) {
+        $queryFilter = "createdTime ge '$($FilterByStartTime.ToString('r'))'"
+    }
+
+    if($FilterByEndTime -ne $null) {
+        if(![string]::IsNullOrEmpty($queryFilter)) {
+            $queryFilter += " and "
+        }
+        $queryFilter += "createdTime le '$($FilterByEndTime.ToString('r'))'"
+    }
+
+    if ( !([string]::IsNullOrEmpty($FilterByEntityId)) ) {
+        if(![string]::IsNullOrEmpty($queryFilter)) {
+            $queryFilter += " and "
+        }
+        if ( $FilterByEntityId -like "*/backupPolicies/*" ) {
+            $queryFilter += "backupPolicyId eq '$($FilterByEntityId)'"
+        } else {
+            $queryFilter += "volumeId eq '$($FilterByEntityId)'"
+        }
+    }
+
+    return $queryFilter
+}
+
 # Define constant variables (DO NOT CHANGE BELOW VALUES)
 $FrontdoorUrl = "urn:ietf:wg:oauth:2.0:oob"
 $TokenUrl = "https://management.azure.com"   # Run 'Get-AzureRmEnvironment | Select-Object Name, ResourceManagerUrl' cmdlet to get the Fairfax url.
@@ -196,9 +225,15 @@ try {
     $CompletedSnapshots =@()
 
     # Get all backups by Device
-    $CompletedSnapshots = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::ListByDevice($StorSimpleClient.Backups, $DeviceName, $ResourceGroupName, $ManagerName)
+    $BackupPolicyId = "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.StorSimple/managers/$ManagerName/devices/$DeviceName/backupPolicies/$BackupPolicyName"
+    $BackupStartTime = Get-Date -Date "1970-01-01 00:00:00Z"
+    $BackupFilter = GenerateBackupFilter $BackupPolicyId $BackupStartTime $ExpirationDate
 
-    Write-Output "Find the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them."
+    $oDataQuery = New-Object Microsoft.Rest.Azure.OData.ODataQuery[Microsoft.Azure.Management.StorSimple8000Series.Models.BackupFilter] -ArgumentList $BackupQuery
+
+    $CompletedSnapshots = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::ListByDevice($StorSimpleClient.Backups, $DeviceName, $ResourceGroupName, $ManagerName, $oDataQuery)
+
+    Write-Output "Find the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them. Query: $BackupFilter"
     foreach ($Snapshot in $CompletedSnapshots) 
     {
         $SnapShotName = $SnapShot.Name

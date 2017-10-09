@@ -31,6 +31,15 @@
     ResourceGroupName: Input the name of the resource group on which to create/update the volume.
     ManagerName: Input the name of the resource (StorSimple device manager) on which to create/update the volume.
     
+    FilterByStartTime: Input the start time of the jobs to be filtered. Eg: (Get-Date -Date "2017-01-01 10:30")
+
+    FilterByEndTime: Input the end time of the jobs to be filtered. Eg: (Get-Date -Date "2017-01-01 10:30")
+
+    FilterByEntityId: Input the entity (backup policy or volume) using which we've to filter. 
+        Eg: 
+        For Backup policy: '/subscriptions/xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg1/providers/Microsoft.StorSimple/managers/devicemgr1/devices/device1/backupPolicies/backupolicy1' 
+        For Volume '/subscriptions/xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg1/providers/Microsoft.StorSimple/managers/devicemgr1/devices/device1/volumeContainers/vc1/volumes/v1'
+
     AuthNType: Input if you want to go with username, AAD authentication key or certificate. Refer https://aka.ms/ss8000-script-sp. 
         Possible values: [UserNamePassword, AuthenticationKey, Certificate]
 		
@@ -62,6 +71,18 @@ Param
     [parameter(Mandatory = $true, HelpMessage = "Input the name of the StorSimple device on which to read backup schedules and backup catalogs.")]
     [String]
     $DeviceName,
+
+    [parameter(Mandatory = $false, HelpMessage = "Input the start time of the jobs to be filtered.")]
+    [DateTime]
+    $FilterByStartTime = (get-date).AddDays(-7),
+
+    [parameter(Mandatory = $false, HelpMessage = "Input the end time of the jobs to be filtered.")]
+    [DateTime]
+    $FilterByEndTime = (get-date),
+
+    [parameter(Mandatory = $false, HelpMessage = "Input the filter entity name. This can be a policy name or a volume name.")]
+    [String]
+    $FilterByEntityId,    
 
     [parameter(Mandatory = $false, HelpMessage = "Input if you want to go with username, AAD authentication key or certificate. Refer https://aka.ms/ss8000-script-sp.")]
     [ValidateSet('UserNamePassword', 'AuthenticationKey', 'Certificate')]
@@ -107,6 +128,34 @@ $StorSimple8000SeresePath = Join-Path $ScriptDirectory "Microsoft.Azure.Manageme
 # Print method
 Function PrettyWriter($Content, $Color = "Yellow") { 
     Write-Host $Content -Foregroundcolor $Color 
+}
+
+Function GenerateQueryFilter() {
+    param([String] $FilterByEntityId, [DateTime] $FilterByStartTime, [DateTime] $FilterByEndTime)
+    $queryFilter = $null
+    if ($FilterByStartTime -ne $null) {
+        $queryFilter = "createdTime ge '$($FilterByStartTime.ToString('r'))'"
+    }
+
+    if($FilterByEndTime -ne $null) {
+        if(![string]::IsNullOrEmpty($queryFilter)) {
+            $queryFilter += " and "
+        }
+        $queryFilter += "createdTime le '$($FilterByEndTime.ToString('r'))'"
+    }
+
+    if ( !([string]::IsNullOrEmpty($FilterByEntityId)) ) {
+        if(![string]::IsNullOrEmpty($queryFilter)) {
+            $queryFilter += " and "
+        }
+        if ( $FilterByEntityId -like "*/backupPolicies/*" ) {
+            $queryFilter += "backupPolicyId eq '$($FilterByEntityId)'"
+        } else {
+            $queryFilter += "volumeId eq '$($FilterByEntityId)'"
+        }
+    }
+
+    return $queryFilter
 }
 
 # Define constant variables (DO NOT CHANGE BELOW VALUES)
@@ -160,9 +209,12 @@ $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.S
 # Set SubscriptionId
 $StorSimpleClient.SubscriptionId = $SubscriptionId
 
+$BackupQuery = GenerateQueryFilter $FilterByEntityId $FilterByStartTime $FilterByEndTime
+
 # Get backups by Device
 try {
-    $Backups = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::ListByDevice($StorSimpleClient.Backups, $DeviceName, $ResourceGroupName, $ManagerName)
+    $oDataQuery = New-Object Microsoft.Rest.Azure.OData.ODataQuery[Microsoft.Azure.Management.StorSimple8000Series.Models.BackupFilter] -ArgumentList $BackupQuery
+    $Backups = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::ListByDevice($StorSimpleClient.Backups, $DeviceName, $ResourceGroupName, $ManagerName,$oDataQuery)
 }
 catch {
     # Print error details
