@@ -177,14 +177,14 @@ try {
     # Set backup type (CloudSnapshot)
     $BackupType = 'CloudSnapshot'
 
-    Write-Output "Starting start a manual backup."
-
     if ( $WhatIf ) 
     {
         PrettyWriter "WhatIf: Perform manual backup." "Red"
     }
     else 
     {
+        Write-Output "Starting start a manual backup."
+
         $Result = [Microsoft.Azure.Management.StorSimple8000Series.BackupPoliciesOperationsExtensions]::BackupNowAsync($StorSimpleClient.BackupPolicies, $DeviceName, $BackupPolicyName, $BackupType, $ResourceGroupName, $ManagerName)
         if ($Result -ne $null -and $Result.IsFaulted) {
             Write-Output $Result.Exception
