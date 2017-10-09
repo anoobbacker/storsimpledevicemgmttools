@@ -18,7 +18,7 @@
             C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Rest.ClientRuntime.Azure.Authentication -Version 2.2.9-preview
     
     4.  Download the script from script center. 
-            wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Manage-CloudSnapshots.ps1 -Out Manage-CloudSnapshots.ps1
+            wget https://raw.githubusercontent.com/anoobbacker/storsimpledevicemgmttools/master/Manage-CloudSnapshots.ps1 -Out Manage-CloudSnapshots.ps1
             .\Manage-CloudSnapshots.ps1 -SubscriptionId [subid] -TenantId [tenantid] -ResourceGroupName [resource group] -ManagerName [device manager] -DeviceName [device name] -BackupPolicyName [backup policy name] -RetentionInDays [retention days] -AuthNType [Type of auth] -AADAppId [AAD app Id] -AADAppAuthNKey [AAD App Auth Key] -WhatIf [$true/$false]
      
      ----------------------------
