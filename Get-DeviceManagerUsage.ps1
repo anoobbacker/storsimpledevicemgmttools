@@ -318,9 +318,14 @@ try {
             } elseif ( $Device.ModelDescription -eq "8600" ) {
                 #$MaximumCapacityBytes = 500 * 1024 * 1024 * 1024 * 1024
                 $object | Add-Member –Type NoteProperty –Name "Max" -Value "500TB"
-            } else {                
+            } elseif ( $Device.ModelDescription -eq "8010" ) {
                 #$MaximumCapacityBytes = 30 * 1024 * 1024 * 1024 * 1024
                 $object | Add-Member –Type NoteProperty –Name "Max" -Value "30TB"
+            } elseif ( $Device.ModelDescription -eq "8020" ) {
+                #$MaximumCapacityBytes = 64 * 1024 * 1024 * 1024 * 1024
+                $object | Add-Member –Type NoteProperty –Name "Max" -Value "64TB"
+            } else {
+                $object | Add-Member –Type NoteProperty –Name "Max" -Value "-"
             }
             $DeviceUsageStats += $object  
         }
