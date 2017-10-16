@@ -275,29 +275,54 @@ try {
     $Devices = [Microsoft.Azure.Management.StorSimple8000Series.DevicesOperationsExtensions]::ListByManager($StorSimpleClient.Devices, $ResourceGroupName, $ManagerName)
     # Print device usage
     
+    $DeviceUsageStats = @()
     if ($Devices -ne $null -and $Devices.Length -gt 0) {
         #Usage fields: AvailableLocalStorageInBytes, AvailableTieredStorageInBytes, ProvisionedTieredStorageInBytes, ProvisionedLocalStorageInBytes, ProvisionedVolumeSizeInBytes, UsingStorageInBytes, TotalTieredStorageInBytes
         foreach ($Device in $Devices) 
         {
             $AvailableLocalStorage = Convert-Size "Bytes"  $Device.AvailableLocalStorageInBytes
             $AvailableTieredStorage = Convert-Size "Bytes" $Device.AvailableTieredStorageInBytes
+            $RemainingLocalStorageBytes = ($Device.AvailableLocalStorageInBytes - $Device.UsingStorageInBytes)
+            $RemainingLocalStorage = Convert-Size "Bytes" $RemainingLocalStorageBytes
             $ProvisionedTieredStorage = Convert-Size "Bytes" $Device.ProvisionedTieredStorageInBytes
             $ProvisionedLocalStorage = Convert-Size "Bytes" $Device.ProvisionedLocalStorageInBytes
             $ProvisionedVolumeSize = Convert-Size "Bytes" $Device.ProvisionedVolumeSizeInBytes
             $UsingStorage = Convert-Size "Bytes" $Device.UsingStorageInBytes            
-            PrettyWriter "Device Name: $($Device.Name)"
+            $object = New-Object System.Object
+            $object | Add-Member –Type NoteProperty –Name "Device Name" -Value $Device.Name            
             #StorSimple cloud appliances (8010/8020) doesn't support locally-pinned volumes.
             if ( $Device.ModelDescription -ne "8010" -and $Device.ModelDescription -ne "8020" ) {
-                PrettyWriter "    Available local storage size - $AvailableLocalStorage" "Green"
+                $object | Add-Member –Type NoteProperty –Name "Available" -Value "Local=$AvailableLocalStorage Or Tiered=$AvailableTieredStorage"  
+            } else {
+                $object | Add-Member –Type NoteProperty –Name "Available" -Value "Tiered=$AvailableTieredStorage"     
             }
-            PrettyWriter "    Available tiered storage size  - $AvailableTieredStorage" "Green"
-            PrettyWriter "    Provisioned tiered storage size  - $ProvisionedTieredStorage" "Green"
+
+
+            #Provisioned Tiered Storage
+            $object | Add-Member –Type NoteProperty –Name "Prov. Tiered" -Value "$ProvisionedTieredStorage"
+            
             #StorSimple cloud appliances (8010/8020) doesn't support locally-pinned volumes.
+            #Provisioned Local Storage
             if ( $Device.ModelDescription -ne "8010" -and $Device.ModelDescription -ne "8020" ) {
-                PrettyWriter "    Provisioned local storage size  - $ProvisionedLocalStorage" "Green"
+                $object | Add-Member –Type NoteProperty –Name "Prov. Local" -Value "$ProvisionedLocalStorage"
+            } else {
+                $object | Add-Member –Type NoteProperty –Name "Prov. Local" -Value "-"
             }
-            PrettyWriter "    Provisioned volume size - $ProvisionedVolumeSize" "Green"
-            PrettyWriter "    In use size - $UsingStorage" "Green"
+            
+            $object | Add-Member –Type NoteProperty –Name "Prov. Volume" -Value "$ProvisionedVolumeSize"
+            $object | Add-Member –Type NoteProperty –Name "Usage" -Value "$UsingStorage"
+            
+            if ( $Device.ModelDescription -eq "8100" ) {
+                #$MaximumCapacityBytes = 200 * 1024 * 1024 * 1024 * 1024
+                $object | Add-Member –Type NoteProperty –Name "Max" -Value "200TB"                
+            } elseif ( $Device.ModelDescription -eq "8600" ) {
+                #$MaximumCapacityBytes = 500 * 1024 * 1024 * 1024 * 1024
+                $object | Add-Member –Type NoteProperty –Name "Max" -Value "500TB"
+            } else {                
+                #$MaximumCapacityBytes = 30 * 1024 * 1024 * 1024 * 1024
+                $object | Add-Member –Type NoteProperty –Name "Max" -Value "30TB"
+            }
+            $DeviceUsageStats += $object  
         }
     } else {
         Write-Error "No device(s) available."
@@ -308,3 +333,6 @@ catch {
     Write-Error $_.Exception.Message
     break
 }
+
+# Print result
+$DeviceUsageStats | Format-Table -Auto
