@@ -18,7 +18,7 @@
             C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Rest.ClientRuntime.Azure.Authentication -Version 2.2.9-preview
     
     4.  Download the script from script center. 
-            wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Manage-CloudSnapshots.ps1 -Out Manage-CloudSnapshots.ps1
+            wget https://raw.githubusercontent.com/anoobbacker/storsimpledevicemgmttools/master/Manage-CloudSnapshots.ps1 -Out Manage-CloudSnapshots.ps1
             .\Manage-CloudSnapshots.ps1 -SubscriptionId [subid] -TenantId [tenantid] -ResourceGroupName [resource group] -ManagerName [device manager] -DeviceName [device name] -BackupPolicyName [backup policy name] -RetentionInDays [retention days] -AuthNType [Type of auth] -AADAppId [AAD app Id] -AADAppAuthNKey [AAD App Auth Key] -WhatIf [$true/$false]
      
      ----------------------------
@@ -119,6 +119,35 @@ Function PrettyWriter($Content, $Color = "Yellow") {
     Write-Host $Content -Foregroundcolor $Color 
 }
 
+# Create a query filter
+Function GenerateBackupFilter() {
+    param([String] $FilterByEntityId, [DateTime] $FilterByStartTime, [DateTime] $FilterByEndTime)
+    $queryFilter = $null
+    if ($FilterByStartTime -ne $null) {
+        $queryFilter = "createdTime ge '$($FilterByStartTime.ToString('r'))'"
+    }
+
+    if($FilterByEndTime -ne $null) {
+        if(![string]::IsNullOrEmpty($queryFilter)) {
+            $queryFilter += " and "
+        }
+        $queryFilter += "createdTime le '$($FilterByEndTime.ToString('r'))'"
+    }
+
+    if ( !([string]::IsNullOrEmpty($FilterByEntityId)) ) {
+        if(![string]::IsNullOrEmpty($queryFilter)) {
+            $queryFilter += " and "
+        }
+        if ( $FilterByEntityId -like "*/backupPolicies/*" ) {
+            $queryFilter += "backupPolicyId eq '$($FilterByEntityId)'"
+        } else {
+            $queryFilter += "volumeId eq '$($FilterByEntityId)'"
+        }
+    }
+
+    return $queryFilter
+}
+
 # Define constant variables (DO NOT CHANGE BELOW VALUES)
 $FrontdoorUrl = "urn:ietf:wg:oauth:2.0:oob"
 $TokenUrl = "https://management.azure.com"   # Run 'Get-AzureRmEnvironment | Select-Object Name, ResourceManagerUrl' cmdlet to get the Fairfax url.
@@ -177,14 +206,14 @@ try {
     # Set backup type (CloudSnapshot)
     $BackupType = 'CloudSnapshot'
 
-    Write-Output "Starting start a manual backup."
-
     if ( $WhatIf ) 
     {
         PrettyWriter "WhatIf: Perform manual backup." "Red"
     }
     else 
     {
+        Write-Output "Starting start a manual backup."
+
         $Result = [Microsoft.Azure.Management.StorSimple8000Series.BackupPoliciesOperationsExtensions]::BackupNowAsync($StorSimpleClient.BackupPolicies, $DeviceName, $BackupPolicyName, $BackupType, $ResourceGroupName, $ManagerName)
         if ($Result -ne $null -and $Result.IsFaulted) {
             Write-Output $Result.Exception
@@ -196,9 +225,15 @@ try {
     $CompletedSnapshots =@()
 
     # Get all backups by Device
-    $CompletedSnapshots = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::ListByDevice($StorSimpleClient.Backups, $DeviceName, $ResourceGroupName, $ManagerName)
+    $BackupPolicyId = "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.StorSimple/managers/$ManagerName/devices/$DeviceName/backupPolicies/$BackupPolicyName"
+    $BackupStartTime = Get-Date -Date "1970-01-01 00:00:00Z"
+    $BackupFilter = GenerateBackupFilter $BackupPolicyId $BackupStartTime $ExpirationDate
 
-    Write-Output "Find the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them."
+    $oDataQuery = New-Object Microsoft.Rest.Azure.OData.ODataQuery[Microsoft.Azure.Management.StorSimple8000Series.Models.BackupFilter] -ArgumentList $BackupQuery
+
+    $CompletedSnapshots = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::ListByDevice($StorSimpleClient.Backups, $DeviceName, $ResourceGroupName, $ManagerName, $oDataQuery)
+
+    Write-Output "Find the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them. Query: $BackupFilter"
     foreach ($Snapshot in $CompletedSnapshots) 
     {
         $SnapShotName = $SnapShot.Name

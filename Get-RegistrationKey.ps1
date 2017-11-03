@@ -1,6 +1,6 @@
-﻿<#
+<#
 .DESCRIPTION
-    This scipt lists all the backups under a device.
+    This scipt lists StorSimple device manager and usages of the devices under the manager.
 
     Steps to execute the script: 
     ----------------------------
@@ -18,8 +18,8 @@
             C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Rest.ClientRuntime.Azure.Authentication -Version 2.2.9-preview
     
     4.  Download the script from script center. 
-            wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Get-DeviceBackup.ps1 -Out Get-DeviceBackup.ps1
-            .\Get-DeviceBackup.ps1 -SubscriptionId [subid] -TenantId [tenantid] -ResourceGroupName [resource group] -ManagerName [device manager] -DeviceName [device name] -AuthNType [Type of auth] -AADAppId [AAD app Id] -AADAppAuthNKey [AAD App Auth Key]
+            wget https://raw.githubusercontent.com/anoobbacker/storsimpledevicemgmttools/master/Get-RegistrationKey.ps1 -Out Get-DeviceManagerUsage.ps1
+            .\Get-RegistrationKey.ps1 -SubscriptionId [subid] -TenantId [tenantid] -ResourceGroupName [resource group] -ManagerName [device manager] -AuthNType [Type of auth] -AADAppId [AAD app Id] -AADAppAuthNKey [AAD App Auth Key]
      
      ----------------------------
 .PARAMS 
@@ -27,22 +27,11 @@
     SubscriptionId: Input the Subscription ID where the StorSimple 8000 series device manager is deployed.
     TenantId: Input the Tenant ID of the subscription. Get Tenant ID using Get-AzureRmSubscription cmdlet or go to the documentation https://aka.ms/ss8000-script-tenantid.
     
-    DeviceName: Input the name of the StorSimple device on which to create/update the volume.
     ResourceGroupName: Input the name of the resource group on which to create/update the volume.
-    ManagerName: Input the name of the resource (StorSimple device manager) on which to create/update the volume.
+    ManagerName: Input the name of the resource (StorSimple device manager).
+
+    AuthNType: Input if you want to go with username, AAD authentication key or certificate. Possible values: [UserNamePassword, AuthenticationKey, Certificate]. Refer https://aka.ms/ss8000-script-sp. 
     
-    FilterByStartTime: Input the start time of the jobs to be filtered. Eg: (Get-Date -Date "2017-01-01 10:30")
-
-    FilterByEndTime: Input the end time of the jobs to be filtered. Eg: (Get-Date -Date "2017-01-01 10:30")
-
-    FilterByEntityId: Input the entity (backup policy or volume) using which we've to filter. 
-        Eg: 
-        For Backup policy: '/subscriptions/xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg1/providers/Microsoft.StorSimple/managers/devicemgr1/devices/device1/backupPolicies/backupolicy1' 
-        For Volume '/subscriptions/xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/rg1/providers/Microsoft.StorSimple/managers/devicemgr1/devices/device1/volumeContainers/vc1/volumes/v1'
-
-    AuthNType: Input if you want to go with username, AAD authentication key or certificate. Refer https://aka.ms/ss8000-script-sp. 
-        Possible values: [UserNamePassword, AuthenticationKey, Certificate]
-		
     AADAppId: Input application ID for which the service principal was set. Refer https://aka.ms/ss8000-script-sp.
     AADAppAuthNKey: Input application authentication key for which the AAD application. Refer https://aka.ms/ss8000-script-sp.
 	
@@ -68,22 +57,6 @@ Param
     [String]
     $ManagerName,
 
-    [parameter(Mandatory = $true, HelpMessage = "Input the name of the StorSimple device on which to read backup schedules and backup catalogs.")]
-    [String]
-    $DeviceName,
-
-    [parameter(Mandatory = $false, HelpMessage = "Input the start time of the jobs to be filtered.")]
-    [DateTime]
-    $FilterByStartTime = (get-date).AddDays(-7),
-
-    [parameter(Mandatory = $false, HelpMessage = "Input the end time of the jobs to be filtered.")]
-    [DateTime]
-    $FilterByEndTime = (get-date),
-
-    [parameter(Mandatory = $false, HelpMessage = "Input the filter entity name. This can be a policy name or a volume name.")]
-    [String]
-    $FilterByEntityId,    
-
     [parameter(Mandatory = $false, HelpMessage = "Input if you want to go with username, AAD authentication key or certificate. Refer https://aka.ms/ss8000-script-sp.")]
     [ValidateSet('UserNamePassword', 'AuthenticationKey', 'Certificate')]
     [String]
@@ -103,13 +76,13 @@ Param
 
     [parameter(Mandatory = $false, HelpMessage = "Input the service principal ceritifcate password for the AAD application.")]
     [String]
-    $AADAppAuthNCertPassword
+    $AADAppAuthNCertPassword    
 )
 
 # Set Current directory path
 $ScriptDirectory = (Get-Location).Path
 
-# Set dll path
+#Set dll path
 $ActiveDirectoryPath = Join-Path $ScriptDirectory "Microsoft.IdentityModel.Clients.ActiveDirectory.2.28.3\lib\net45\Microsoft.IdentityModel.Clients.ActiveDirectory.dll"
 $ClientRuntimeAzurePath = Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.Azure.3.3.7\lib\net452\Microsoft.Rest.ClientRuntime.Azure.dll"
 $ClientRuntimePath = Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.2.3.8\lib\net452\Microsoft.Rest.ClientRuntime.dll"
@@ -117,7 +90,7 @@ $NewtonsoftJsonPath = Join-Path $ScriptDirectory "Newtonsoft.Json.6.0.8\lib\net4
 $AzureAuthenticationPath = Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.Azure.Authentication.2.2.9-preview\lib\net45\Microsoft.Rest.ClientRuntime.Azure.Authentication.dll"
 $StorSimple8000SeresePath = Join-Path $ScriptDirectory "Microsoft.Azure.Management.Storsimple8000series.1.0.0\lib\net452\Microsoft.Azure.Management.Storsimple8000series.dll"
 
-# Load all required assemblies
+#Load all required assemblies
 [System.Reflection.Assembly]::LoadFrom($ActiveDirectoryPath) | Out-Null
 [System.Reflection.Assembly]::LoadFrom($ClientRuntimeAzurePath) | Out-Null
 [System.Reflection.Assembly]::LoadFrom($ClientRuntimePath) | Out-Null
@@ -128,35 +101,7 @@ $StorSimple8000SeresePath = Join-Path $ScriptDirectory "Microsoft.Azure.Manageme
 # Print method
 Function PrettyWriter($Content, $Color = "Yellow") { 
     Write-Host $Content -Foregroundcolor $Color 
-}
-
-Function GenerateQueryFilter() {
-    param([String] $FilterByEntityId, [DateTime] $FilterByStartTime, [DateTime] $FilterByEndTime)
-    $queryFilter = $null
-    if ($FilterByStartTime -ne $null) {
-        $queryFilter = "createdTime ge '$($FilterByStartTime.ToString('r'))'"
-    }
-
-    if($FilterByEndTime -ne $null) {
-        if(![string]::IsNullOrEmpty($queryFilter)) {
-            $queryFilter += " and "
-        }
-        $queryFilter += "createdTime le '$($FilterByEndTime.ToString('r'))'"
-    }
-
-    if ( !([string]::IsNullOrEmpty($FilterByEntityId)) ) {
-        if(![string]::IsNullOrEmpty($queryFilter)) {
-            $queryFilter += " and "
-        }
-        if ( $FilterByEntityId -like "*/backupPolicies/*" ) {
-            $queryFilter += "backupPolicyId eq '$($FilterByEntityId)'"
-        } else {
-            $queryFilter += "volumeId eq '$($FilterByEntityId)'"
-        }
-    }
-
-    return $queryFilter
-}
+}       
 
 # Define constant variables (DO NOT CHANGE BELOW VALUES)
 $FrontdoorUrl = "urn:ietf:wg:oauth:2.0:oob"
@@ -174,7 +119,7 @@ $SyncContext = New-Object System.Threading.SynchronizationContext
 if ("UserNamePassword".Equals($AuthNType)) {    
     # Username password
     $AADClient = [Microsoft.Rest.Azure.Authentication.ActiveDirectoryClientSettings]::UsePromptOnly($DomainId, $FrontdoorUri)
-    $Credentials = [Microsoft.Rest.Azure.Authentication.UserTokenProvider]::LoginWithPromptAsync($TenantId, $AADClient).GetAwaiter().GetResult()
+$Credentials = [Microsoft.Rest.Azure.Authentication.UserTokenProvider]::LoginWithPromptAsync($TenantId, $AADClient).GetAwaiter().GetResult()
 } elseif ("AuthenticationKey".Equals($AuthNType) ) {
     # AAD Application authentication key
     if ( [string]::IsNullOrEmpty($AADAppId) -or [string]::IsNullOrEmpty($AADAppAuthNKey) ) {
@@ -209,12 +154,30 @@ $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.S
 # Set SubscriptionId
 $StorSimpleClient.SubscriptionId = $SubscriptionId
 
-$BackupQuery = GenerateQueryFilter $FilterByEntityId $FilterByStartTime $FilterByEndTime
-
-# Get backups by Device
 try {
-    $oDataQuery = New-Object Microsoft.Rest.Azure.OData.ODataQuery[Microsoft.Azure.Management.StorSimple8000Series.Models.BackupFilter] -ArgumentList $BackupQuery
-    $Backups = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::ListByDevice($StorSimpleClient.Backups, $DeviceName, $ResourceGroupName, $ManagerName,$oDataQuery)
+    #Get the activation key
+    $ActivationKey = [Microsoft.Azure.Management.StorSimple8000Series.ManagersOperationsExtensions]::GetActivationKey($StorSimpleClient.Managers, $ResourceGroupName, $ManagerName)
+    
+    #Get the extendedinfo for integrity key
+    $ResourceExtendedInfo = [Microsoft.Azure.Management.StorSimple8000Series.ManagersOperationsExtensions]::GetExtendedInfo($StorSimpleClient.Managers, $ResourceGroupName, $ManagerName)
+
+    $Sha512 = New-Object System.Security.Cryptography.SHA512Cng;
+
+    # Print key
+    if ($ActivationKey -ne $null -and $ResourceExtendedInfo -ne $null) {
+        #Append the activation & integrity key
+        $RegistrationKey= "" + $ActivationKey.activationKey + ":" + $($ResourceExtendedInfo.IntegrityKey)
+        $RegistrationKeyBytes = [System.Text.Encoding]::UTF8.GetBytes($RegistrationKey)
+
+        #create the hash of the registration key & append
+        $ShaHashBytes = $Sha512.ComputeHash($RegistrationKeyBytes)
+        $ShaHash = [System.BitConverter]::ToString($ShaHashBytes)
+        $ShaPostFix =$ShaHash.Replace("-","").ToLower().Substring(0,16)
+        
+        PrettyWriter "Registration key: $RegistrationKey#$ShaPostFix"
+    } else {
+        Write-Error "Failed to generate the registration key."
+    }
 }
 catch {
     # Print error details
@@ -222,9 +185,5 @@ catch {
     break
 }
 
-# Print backups
-if ($Backups -ne $null -and $Backups.Length -gt 0) {
-    $Backups
-} else {
-    Write-Error "No successfully backup(s) available."
-}
+# Print result
+$DeviceUsageStats | Format-Table -Auto
