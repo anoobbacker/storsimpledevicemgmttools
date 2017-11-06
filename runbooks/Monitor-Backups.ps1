@@ -52,26 +52,66 @@
     ManagerName: Input the name of the resource (StorSimple device manager) on which to retrieve the StorSimple job(s).
     DeviceName: Input the name of the StorSimple device on which to retrieve the StorSimple job(s).
     NumberOfDaysForReport: Input the number of days for which to get Backup status report.
+
+    Mail-Credential: Input a user account that has permission to perform this action.
+    Mail-ToAddress: Input the addresses to which the mail is sent.
+                    If you have multiple addresses, then add addresses as a comma-separated string, such as someone@example.com,someone@example.com
+    Mail-Subject: Input the subject of the email message. 
+    Mail-SMTPServer: Input the name of the SMTP server that sends the email message.
 #>
 
-param
-(
-    [Parameter(Mandatory = $true, HelpMessage = "Input the name of the resource group on which to retrieve the StorSimple job(s).")]
-    [String]
-    $ResourceGroupName,
+if (!(Get-Command Get-AutomationConnection -errorAction SilentlyContinue))
+{
+    throw "You cannot running the script in an Windows Powershell. Import this into Azure automation account and execute."  
+}
 
-    [Parameter(Mandatory = $true, HelpMessage = "Input the name of the resource (StorSimple device manager) on which to retrieve the StorSimple job(s).")]
-    [String]
-    $ManagerName,
+$ResourceGroupName = Get-AutomationVariable -Name "ResourceGroupName" 
+if ($ResourceGroupName -eq $null) 
+{ 
+    throw "The ResourceGroupName asset has not been created in the Automation service."  
+}
 
-    [Parameter(Mandatory = $true, HelpMessage = "Input the name of the StorSimple device on which to retrieve the StorSimple job(s).")]
-    [String]
-    $DeviceName,
+$ManagerName = Get-AutomationVariable -Name "ManagerName" 
+if ($ManagerName -eq $null) 
+{ 
+    throw "The ManagerName asset has not been created in the Automation service."
+}
 
-	[Parameter(Mandatory=$false, HelpMessage = "Input the number of days to get Backups status report.")]
-	[int]
-    $NumberOfDaysForReport
-)
+$DeviceName = Get-AutomationVariable -Name "DeviceName" 
+if ($DeviceName -eq $null) 
+{ 
+    throw "The DeviceName asset has not been created in the Automation service."
+}
+
+$NumberOfDaysForReport = Get-AutomationVariable -Name "NumberOfDaysForReport" 
+if ($NumberOfDaysForReport -eq $null) 
+{ 
+    throw "The NumberOfDaysForReport asset has not been created in the Automation service."
+}
+
+$Mail_SMTPServer = Get-AutomationVariable -Name "Mail-SMTPServer"
+if ($Mail_SMTPServer -eq $null) 
+{ 
+    throw "The Mail-SMTPServer asset has not been created in the Automation service."  
+}
+
+$Mail_ToAddress = Get-AutomationVariable -Name "Mail-ToAddress"
+if ($Mail_ToAddress -eq $null)
+{
+    throw "The Mail-ToAddress asset has not been created in the Automation service."
+}
+
+$Mail_Subject = Get-AutomationVariable -Name "Mail-Subject"
+if ($Mail_Subject -eq $null)
+{
+    throw "The Mail-Subject asset has not been created in the Automation service."
+}
+
+$Mail_Credential = Get-AutomationPSCredential -Name "Mail-Credential"
+if ($Mail_Credential -eq $null)
+{
+    throw "The Mail-Credential asset has not been created in the Automation service."
+}
 
 function GenerateFilterODataQuery()
 {
@@ -161,15 +201,15 @@ function EnumerateJobs()
         $ErrorDetails = ($job.Error | select Message).Message -Join ', '
 
         $object = New-Object System.Object
-        $object | Add-Member –Type NoteProperty –Name BackupPolicyName -Value $job.EntityLabel
-        $object | Add-Member –Type NoteProperty –Name Volumes -Value $VolumeNames
-        $object | Add-Member –Type NoteProperty –Name JobType -Value $job.JobType
-        $object | Add-Member –Type NoteProperty –Name BackupType -Value $job.BackupType
-        $object | Add-Member –Type NoteProperty –Name Status -Value $job.Status
-        $object | Add-Member –Type NoteProperty –Name StartTime -Value $job.StartTime
-        $object | Add-Member –Type NoteProperty –Name EndTime -Value $job.EndTime
-        $object | Add-Member –Type NoteProperty –Name Duration -Value $durationInString
-        $object | Add-Member –Type NoteProperty –Name 'Error Message' $ErrorDetails
+        $object | Add-Member -Type NoteProperty -Name BackupPolicyName -Value $job.EntityLabel
+        $object | Add-Member -Type NoteProperty -Name Volumes -Value $VolumeNames
+        $object | Add-Member -Type NoteProperty -Name JobType -Value $job.JobType
+        $object | Add-Member -Type NoteProperty -Name BackupType -Value $job.BackupType
+        $object | Add-Member -Type NoteProperty -Name Status -Value $job.Status
+        $object | Add-Member -Type NoteProperty -Name StartTime -Value $job.StartTime
+        $object | Add-Member -Type NoteProperty -Name EndTime -Value $job.EndTime
+        $object | Add-Member -Type NoteProperty -Name Duration -Value $durationInString
+        $object | Add-Member -Type NoteProperty -Name 'Error Message' $ErrorDetails
 
         $JobsHistory += $object
     }
@@ -178,12 +218,12 @@ function EnumerateJobs()
 }
 
 $SLEEPTIMEOUT = 10    # Value in seconds
-$BaseUrl = "https://management.azure.com" #Run '(Get-AzureRmEnvironment).ResourceManagerUrl' get the Fairfax url.
+$TokenUrl = "https://management.azure.com" #Run '(Get-AzureRmEnvironment).ResourceManagerUrl' get the Fairfax url.
 
-if (!(Get-Command Get-AutomationConnection -errorAction SilentlyContinue))
-{
-    throw "You cannot running the script in an Windows Powershell. Import this into Azure automation account and execute."  
-}
+# Get mail from address 
+$Mail_FromAddress = $Mail_Credential.UserName
+$Mail_Subject = $Mail_Subject + " " + (Get-Date -Format "dd-MMM-yyyy")
+$Mail_ToAddress = $Mail_ToAddress -split ','
 
 $ServicePrincipalConnection = Get-AutomationConnection -Name AzureRunAsConnection
 if ($ServicePrincipalConnection -eq $null)  { 
@@ -225,19 +265,20 @@ $ScriptDirectory = "C:\Modules\User\Microsoft.Azure.Management.StorSimple8000Ser
 $SyncContext = New-Object System.Threading.SynchronizationContext
 [System.Threading.SynchronizationContext]::SetSynchronizationContext($SyncContext)
 
-$BaseUri = New-Object System.Uri -ArgumentList $BaseUrl
+$TokenUri = New-Object System.Uri -ArgumentList $TokenUrl
 
 $ClientAssertionCertificate = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.ClientAssertionCertificate -ArgumentList $ClientId, $ClientCertificate
 
 # Verify User Credentials
 Write-Verbose "Connecting to Azure [SubscriptionId = $SubscriptionId][TenantID = $TenantId][ApplicationID = $ClientId][Certificate = $ClientCertificate.Subject]"
+Write-Output "Connecting to Azure"
 $Credentials = [Microsoft.Rest.Azure.Authentication.ApplicationTokenProvider]::LoginSilentWithCertificateAsync($TenantId, $ClientAssertionCertificate).GetAwaiter().GetResult()
 if ($Credentials -eq $null) {
    throw "Failed to authenticate!"
 }
 
 try {
-    $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.StorSimple8000SeriesManagementClient -ArgumentList $BaseUri, $Credentials
+    $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.StorSimple8000SeriesManagementClient -ArgumentList $TokenUri, $Credentials
 
     # Sleep before connecting to Azure (PowerShell)
     Start-Sleep -s $SLEEPTIMEOUT
@@ -270,8 +311,8 @@ foreach ($BackupPolicy in $BackupPolicies) {
                     }) -Join ','
 
     $object = New-Object System.Object
-    $object | Add-Member –Type NoteProperty –Name BackupPolicyName –Value $BackupPolicy.Name
-    $object | Add-Member –Type NoteProperty –Name Volumes –Value $VolumeNames
+    $object | Add-Member -Type NoteProperty -Name BackupPolicyName -Value $BackupPolicy.Name
+    $object | Add-Member -Type NoteProperty -Name Volumes -Value $VolumeNames
     $PolictyToVolumeList += $object
 }
 
@@ -319,6 +360,15 @@ try {
 if ($SucceededJobs -ne $null -and $SucceededJobs.Length -gt 0) {
     $JobsHistory += EnumerateJobs $PolictyToVolumeList $SucceededJobs
 }
+
+# Send a mail
+$Mail_Body = ($JobsHistory | ConvertTo-Html | Out-String)
+$Mail_Body = $Mail_Body -replace "<head>", "<head><style>body{font-family: 'Segoe UI',Arial,sans-serif; color: #366EC4; font-size: 13px;}table { border-right: 1px solid #434343;  border-top: 1px solid #434343; } th, td { border-left: 1px solid #434343; border-bottom: 1px solid #434343; padding: 5px 5px; }</style>"
+$Mail_Body = $Mail_Body -replace "<table>", "<table cellspacing='0' cellpadding='0' width='700px'>"
+
+Write-Output "Attempting to send a status mail"
+Send-MailMessage -Credential $Mail_Credential -From $Mail_FromAddress -To $Mail_ToAddress -Subject $Mail_Subject -SmtpServer $Mail_SMTPServer -Body $Mail_Body -BodyAsHtml:$true -UseSsl
+Write-Output "Mail sent successfully"
 
 # Print result
 $JobsHistory | Format-Table -GroupBy Status -Auto
