@@ -229,7 +229,7 @@ try {
     $BackupStartTime = Get-Date -Date "1970-01-01 00:00:00Z"
     $BackupFilter = GenerateBackupFilter $BackupPolicyId $BackupStartTime $ExpirationDate
 
-    $oDataQuery = New-Object Microsoft.Rest.Azure.OData.ODataQuery[Microsoft.Azure.Management.StorSimple8000Series.Models.BackupFilter] -ArgumentList $BackupQuery
+    $oDataQuery = New-Object Microsoft.Rest.Azure.OData.ODataQuery[Microsoft.Azure.Management.StorSimple8000Series.Models.BackupFilter] -ArgumentList $BackupFilter
 
     $CompletedSnapshots = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::ListByDevice($StorSimpleClient.Backups, $DeviceName, $ResourceGroupName, $ManagerName, $oDataQuery)
 
