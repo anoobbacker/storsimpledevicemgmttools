@@ -1,9 +1,9 @@
 <#
 .DESCRIPTION
     This scipt starts a manual backup & deletes the backup cloud snapshots older than specified retention days.
-
-    Steps to execute the script: 
-    ----------------------------
+    
+    Steps to execute the script (https://aka.ms/ss8000-azure-automation):
+    --------------------------------------------------------------------
     1.  Open powershell, create a new folder & change directory to the folder.
             mkdir C:\scripts\StorSimpleSDKTools
             cd C:\scripts\StorSimpleSDKTools
@@ -44,7 +44,29 @@
 
     7. Import the Azure Automation module zip file (Microsoft.Azure.Management.StorSimple8000Series.zip) created in above step. This can be done by selecting the Automation Account, click "Modules" under SHARED RESOURCES and then click "Add a module". 
 
-    8. Import the runbook script (Monitor-Backup.ps1) as a Azure Automation Powershell runbook script, publish & execute it.
+    8. Import the runbook script (Manage-CloudSnapshots.ps1) as a Azure Automation Powershell runbook script, publish & execute it.
+
+    9. Use below commands to create Variable assets & Credential asset in Azure Automation
+
+            Login-AzureRmAccount -SubscriptionName <sub-name>
+            $ResourceGroupName = "<res-group-name>"
+            $AutomationAccountName = "<automation-acc-name>"
+
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "ResourceGroupName" -Value "<value>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "ManagerName" -Value "<value>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "DeviceName" -Value "<value>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "BackupPolicyName" -Value "<value>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "RetentionInDays" -Value "<value>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "WhatIf" -Value "<$true/$false>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "IsMailRequired" -Value "<$true/$fals>" -Encrypted <$true/$false>
+
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-SMTPServer" -Value "<value>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-ToAddress" -Value "<value>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Subject" -Value "<value>" -Encrypted <$true/$false>
+
+            $user = "<email-id>"
+            $cred = Get-Credential -Credential $user
+            New-AzureRmAutomationCredential -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Credential" -Value $cred
 
      ----------------------------
 .PARAMS
@@ -55,13 +77,14 @@
     BackupPolicyName: Input the name of the Backup policy to use to create the cloud snapshot.
     RetentionInDays: Input the days of the retention to use to delete the older backups. Default value 20 days.
 
-    Mail-Credential: Input a user account that has permission to perform this action.
-    Mail-ToAddress: Input the addresses to which the mail is sent.
-                    If you have multiple addresses, then add addresses as a comma-separated string, such as someone@example.com,someone@example.com
-    Mail-Subject: Input the subject of the email message. 
-    Mail-SMTPServer: Input the name of the SMTP server that sends the email message.
-
     WhatIf: Input the WhatIf arg as $true if you want to see what changes the script will make. Possible values [$false, $true]
+
+    IsMailRequired: Input the ismailrequired arg as $true if you want to receive the results. Possible values [$true/$false]
+    Mail-Credential (Optional): Input a user account that has permission to perform this action.
+    Mail-SMTPServer (Optional): Input the name of the SMTP server that sends the email message.
+    Mail-ToAddress (Optional): Input the addresses to which the mail is sent.
+                    If you have multiple addresses, then add addresses as a comma-separated string, such as someone@example.com,someone@example.com
+    Mail-Subject (Optional): Input the subject of the email message.
 #>
 
 if (!(Get-Command Get-AutomationConnection -ErrorAction SilentlyContinue))
@@ -105,26 +128,32 @@ if ($WhatIf -eq $null)
     throw "The WhatIf asset has not been created in the Automation service."
 }
 
-$Mail_SMTPServer = Get-AutomationVariable -Name "Mail-SMTPServer"
-if ($Mail_SMTPServer -eq $null) 
+$IsMailRequired = Get-AutomationVariable -Name "IsMailRequired" -ErrorAction SilentlyContinue
+if ([string]::IsNullOrEmpty($IsMailRequired)) 
+{ 
+    throw "The IsMailRequired asset has not been created in the Automation service."  
+}
+
+$Mail_SMTPServer = Get-AutomationVariable -Name "Mail-SMTPServer" -ErrorAction SilentlyContinue
+if ($IsMailRequired -and [string]::IsNullOrEmpty($Mail_SMTPServer)) 
 { 
     throw "The Mail-SMTPServer asset has not been created in the Automation service."  
 }
 
-$Mail_ToAddress = Get-AutomationVariable -Name "Mail-ToAddress"
-if ($Mail_ToAddress -eq $null)
+$Mail_ToAddress = Get-AutomationVariable -Name "Mail-ToAddress" -ErrorAction SilentlyContinue
+if ($IsMailRequired -and [string]::IsNullOrEmpty($Mail_ToAddress))
 {
     throw "The Mail-ToAddress asset has not been created in the Automation service."
 }
 
-$Mail_Subject = Get-AutomationVariable -Name "Mail-Subject"
-if ($Mail_Subject -eq $null)
+$Mail_Subject = Get-AutomationVariable -Name "Mail-Subject" -ErrorAction SilentlyContinue
+if ($IsMailRequired -and [string]::IsNullOrEmpty($Mail_Subject))
 {
     throw "The Mail-Subject asset has not been created in the Automation service."
 }
 
-$Mail_Credential = Get-AutomationPSCredential -Name "Mail-Credential"
-if ($Mail_Credential -eq $null)
+$Mail_Credential = Get-AutomationPSCredential -Name "Mail-Credential" -ErrorAction SilentlyContinue
+if ($IsMailRequired -and [string]::IsNullOrEmpty($Mail_Credential))
 {
     throw "The Mail-Credential asset has not been created in the Automation service."
 }
@@ -160,11 +189,14 @@ if ($TenantId -eq $null) {
    throw "Could not retrieve ApplicationId."
 }
 
-# Get from address 
-$Mail_FromAddress = $Mail_Credential.UserName
-$Mail_Subject = $Mail_Subject + " " + (Get-Date -Format "dd-MMM-yyyy")
-$Mail_ToAddress = $Mail_ToAddress -split ','
-$Mail_Body = "<html><head></head><body>"
+if ($IsMailRequired)
+{
+    # Get from address 
+    $Mail_FromAddress = $Mail_Credential.UserName
+    $Mail_Subject = $Mail_Subject + " " + (Get-Date -Format "dd-MMM-yyyy")
+    $Mail_ToAddress = $Mail_ToAddress -split ','
+    $Mail_Body = "<html><head></head><body>"
+}
 
 # Set Current directory path
 $ScriptDirectory = "C:\Modules\User\Microsoft.Azure.Management.StorSimple8000Series"
@@ -321,11 +353,14 @@ catch {
     $Mail_Body = "<br /><br /><b>Exception:</b><br />$_.Exception.Message"
 }
 
-$Mail_Body += "<br /><br /><b>Summary details:</b> <br /> Total snapshots count: $TotalSnapshotCnt <br /> Old snapshots count: $OldSnapshotCnt<br /> Latest snapshots count: $SkippedSnapshotCnt"
-$Mail_Body += "</body></html>"
-Write-Output "`nAttempting to send a status mail"
-Send-MailMessage -Credential $Mail_Credential -From $Mail_FromAddress -To $Mail_ToAddress -Subject $Mail_Subject -SmtpServer $Mail_SMTPServer -Body $Mail_Body -BodyAsHtml:$true -UseSsl
-Write-Output "Mail sent successfully"
+if ($IsMailRequired)
+{
+    $Mail_Body += "<br /><br /><b>Summary details:</b> <br /> Total snapshots count: $TotalSnapshotCnt <br /> Old snapshots count: $OldSnapshotCnt<br /> Latest snapshots count: $SkippedSnapshotCnt"
+    $Mail_Body += "</body></html>"
+    Write-Output "`nAttempting to send a status mail"
+    Send-MailMessage -Credential $Mail_Credential -From $Mail_FromAddress -To $Mail_ToAddress -Subject $Mail_Subject -SmtpServer $Mail_SMTPServer -Body $Mail_Body -BodyAsHtml:$true -UseSsl
+    Write-Output "Mail sent successfully"
+}
 
 PrettyWriter "`n`nSummary details:"
 Write-Output "Total snapshots count: $TotalSnapshotCnt"

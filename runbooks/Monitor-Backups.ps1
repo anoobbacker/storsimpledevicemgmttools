@@ -1,9 +1,9 @@
 <#
 .DESCRIPTION
     This Azure Automation Runbook powershell scipt reports the status of all backup jobs.
-
-    Steps to execute the script: 
-    ----------------------------
+    
+    Steps to execute the script (https://aka.ms/ss8000-azure-automation):
+    --------------------------------------------------------------------
     1.  Open powershell, create a new folder & change directory to the folder.
             mkdir C:\scripts\StorSimpleSDKTools
             cd C:\scripts\StorSimpleSDKTools
@@ -46,6 +46,26 @@
 
     8. Import the runbook script (Monitor-Backup.ps1) as a Azure Automation Powershell runbook script, publish & execute it.
 
+    9. Use below commands to create Variable assets & Credential asset in Azure Automation
+
+            Login-AzureRmAccount -SubscriptionName <sub-name>
+            $ResourceGroupName = "<res-group-name>"
+            $AutomationAccountName = "<automation-acc-name>"
+
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "ResourceGroupName" -Value "<value>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "ManagerName" -Value "<value>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "DeviceName" -Value "<value>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "NumberOfDaysForReport" -Value "<value>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "IsMailRequired" -Value "<$true/$fals>" -Encrypted <$true/$false>
+
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-SMTPServer" -Value "<value>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-ToAddress" -Value "<value>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Subject" -Value "<value>" -Encrypted <$true/$false>
+
+            $user = "<email-id>"
+            $cred = Get-Credential -Credential $user
+            New-AzureRmAutomationCredential -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Credential" -Value $cred
+
      ----------------------------
 .PARAMS
     ResourceGroupName: Input the name of the resource group on which to retrieve the StorSimple job(s).
@@ -53,11 +73,12 @@
     DeviceName: Input the name of the StorSimple device on which to retrieve the StorSimple job(s).
     NumberOfDaysForReport: Input the number of days for which to get Backup status report.
 
-    Mail-Credential: Input a user account that has permission to perform this action.
-    Mail-ToAddress: Input the addresses to which the mail is sent.
+    IsMailRequired: Input the ismailrequired arg as $true if you want to receive the results. Possible values [$true/$false]
+    Mail-Credential (Optional): Input a user account that has permission to perform this action.
+    Mail-SMTPServer (Optional): Input the name of the SMTP server that sends the email message.
+    Mail-ToAddress (Optional): Input the addresses to which the mail is sent.
                     If you have multiple addresses, then add addresses as a comma-separated string, such as someone@example.com,someone@example.com
-    Mail-Subject: Input the subject of the email message. 
-    Mail-SMTPServer: Input the name of the SMTP server that sends the email message.
+    Mail-Subject (Optional): Input the subject of the email message.
 #>
 
 if (!(Get-Command Get-AutomationConnection -errorAction SilentlyContinue))
@@ -89,26 +110,32 @@ if ($NumberOfDaysForReport -eq $null)
     throw "The NumberOfDaysForReport asset has not been created in the Automation service."
 }
 
-$Mail_SMTPServer = Get-AutomationVariable -Name "Mail-SMTPServer"
-if ($Mail_SMTPServer -eq $null) 
+$IsMailRequired = Get-AutomationVariable -Name "IsMailRequired" -ErrorAction SilentlyContinue
+if ([string]::IsNullOrEmpty($IsMailRequired)) 
+{ 
+    throw "The IsMailRequired asset has not been created in the Automation service."  
+}
+
+$Mail_SMTPServer = Get-AutomationVariable -Name "Mail-SMTPServer" -ErrorAction SilentlyContinue
+if ($IsMailRequired -and [string]::IsNullOrEmpty($Mail_SMTPServer)) 
 { 
     throw "The Mail-SMTPServer asset has not been created in the Automation service."  
 }
 
-$Mail_ToAddress = Get-AutomationVariable -Name "Mail-ToAddress"
-if ($Mail_ToAddress -eq $null)
+$Mail_ToAddress = Get-AutomationVariable -Name "Mail-ToAddress" -ErrorAction SilentlyContinue
+if ($IsMailRequired -and [string]::IsNullOrEmpty($Mail_ToAddress))
 {
     throw "The Mail-ToAddress asset has not been created in the Automation service."
 }
 
-$Mail_Subject = Get-AutomationVariable -Name "Mail-Subject"
-if ($Mail_Subject -eq $null)
+$Mail_Subject = Get-AutomationVariable -Name "Mail-Subject" -ErrorAction SilentlyContinue
+if ($IsMailRequired -and [string]::IsNullOrEmpty($Mail_Subject))
 {
     throw "The Mail-Subject asset has not been created in the Automation service."
 }
 
-$Mail_Credential = Get-AutomationPSCredential -Name "Mail-Credential"
-if ($Mail_Credential -eq $null)
+$Mail_Credential = Get-AutomationPSCredential -Name "Mail-Credential" -ErrorAction SilentlyContinue
+if ($IsMailRequired -and [string]::IsNullOrEmpty($Mail_Credential))
 {
     throw "The Mail-Credential asset has not been created in the Automation service."
 }
@@ -220,10 +247,13 @@ function EnumerateJobs()
 $SLEEPTIMEOUT = 10    # Value in seconds
 $TokenUrl = "https://management.azure.com" #Run '(Get-AzureRmEnvironment).ResourceManagerUrl' get the Fairfax url.
 
-# Get mail from address 
-$Mail_FromAddress = $Mail_Credential.UserName
-$Mail_Subject = $Mail_Subject + " " + (Get-Date -Format "dd-MMM-yyyy")
-$Mail_ToAddress = $Mail_ToAddress -split ','
+if ($IsMailRequired)
+{
+    # Get mail from address 
+    $Mail_FromAddress = $Mail_Credential.UserName
+    $Mail_Subject = $Mail_Subject + " " + (Get-Date -Format "dd-MMM-yyyy")
+    $Mail_ToAddress = $Mail_ToAddress -split ','
+}
 
 $ServicePrincipalConnection = Get-AutomationConnection -Name AzureRunAsConnection
 if ($ServicePrincipalConnection -eq $null)  { 
@@ -361,14 +391,17 @@ if ($SucceededJobs -ne $null -and $SucceededJobs.Length -gt 0) {
     $JobsHistory += EnumerateJobs $PolictyToVolumeList $SucceededJobs
 }
 
-# Send a mail
-$Mail_Body = ($JobsHistory | ConvertTo-Html | Out-String)
-$Mail_Body = $Mail_Body -replace "<head>", "<head><style>body{font-family: 'Segoe UI',Arial,sans-serif; color: #366EC4; font-size: 13px;}table { border-right: 1px solid #434343;  border-top: 1px solid #434343; } th, td { border-left: 1px solid #434343; border-bottom: 1px solid #434343; padding: 5px 5px; }</style>"
-$Mail_Body = $Mail_Body -replace "<table>", "<table cellspacing='0' cellpadding='0' width='700px'>"
+if ($IsMailRequired)
+{
+    # Send a mail
+    $Mail_Body = ($JobsHistory | ConvertTo-Html | Out-String)
+    $Mail_Body = $Mail_Body -replace "<head>", "<head><style>body{font-family: 'Segoe UI',Arial,sans-serif; color: #366EC4; font-size: 13px;}table { border-right: 1px solid #434343;  border-top: 1px solid #434343; } th, td { border-left: 1px solid #434343; border-bottom: 1px solid #434343; padding: 5px 5px; }</style>"
+    $Mail_Body = $Mail_Body -replace "<table>", "<table cellspacing='0' cellpadding='0' width='700px'>"
 
-Write-Output "Attempting to send a status mail"
-Send-MailMessage -Credential $Mail_Credential -From $Mail_FromAddress -To $Mail_ToAddress -Subject $Mail_Subject -SmtpServer $Mail_SMTPServer -Body $Mail_Body -BodyAsHtml:$true -UseSsl
-Write-Output "Mail sent successfully"
+    Write-Output "Attempting to send a status mail"
+    Send-MailMessage -Credential $Mail_Credential -From $Mail_FromAddress -To $Mail_ToAddress -Subject $Mail_Subject -SmtpServer $Mail_SMTPServer -Body $Mail_Body -BodyAsHtml:$true -UseSsl
+    Write-Output "Mail sent successfully"
+}
 
 # Print result
 $JobsHistory | Format-Table -GroupBy Status -Auto

@@ -2,8 +2,8 @@
 .DESCRIPTION
     This scipt lists StorSimple device manager and usages of the devices under the manager.
 
-    Steps to execute the script: 
-    ----------------------------
+    Steps to execute the script (https://aka.ms/ss8000-azure-automation):
+    --------------------------------------------------------------------
     1.  Open powershell, create a new folder & change directory to the folder.
             mkdir C:\scripts\StorSimpleSDKTools
             cd C:\scripts\StorSimpleSDKTools
@@ -44,7 +44,27 @@
 
     7. Import the Azure Automation module zip file (Microsoft.Azure.Management.StorSimple8000Series.zip) created in above step. This can be done by selecting the Automation Account, click "Modules" under SHARED RESOURCES and then click "Add a module". 
 
-    8. Import the runbook script (Monitor-Backup.ps1) as a Azure Automation Powershell runbook script, publish & execute it.
+    8. Import the runbook script (Get-DeviceManagerUsage.ps1) as a Azure Automation Powershell runbook script, publish & execute it.
+
+    9. Use below commands to create Variable assets & Credential asset in Azure Automation
+
+            Login-AzureRmAccount -SubscriptionName <sub-name>
+            $ResourceGroupName = "<res-group-name>"
+            $AutomationAccountName = "<automation-acc-name>"
+
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "ResourceGroupName" -Value "<value>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "ManagerName" -Value "<value>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "FilterByStartTime" -Value "<value>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "FilterByEndTime" -Value "<value>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "IsMailRequired" -Value "<$true/$fals>" -Encrypted <$true/$false>
+
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-SMTPServer" -Value "<value>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-ToAddress" -Value "<value>" -Encrypted <$true/$false>
+            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Subject" -Value "<value>" -Encrypted <$true/$false>
+
+            $user = "<email-id>"
+            $cred = Get-Credential -Credential $user
+            New-AzureRmAutomationCredential -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Credential" -Value $cred
 
      ----------------------------
 .PARAMS
@@ -55,11 +75,13 @@
     FilterByStartTime: Input the start time of the capacity utilization. Eg: (Get-Date -Date "2017-01-01 10:30")
     FilterByEndTime: Input the end time of the capacity utilization. Eg: (Get-Date -Date "2017-01-01 10:30")
 
-    Mail-Credential: Input a user account that has permission to perform this action.
-    Mail-ToAddress: Input the addresses to which the mail is sent.
+    IsMailRequired: Input the ismailrequired arg as $true if you want to receive the results. Possible values [$true/$false]
+    Mail-Credential (Optional): Input a user account that has permission to perform this action.
+    Mail-SMTPServer (Optional): Input the name of the SMTP server that sends the email message.
+    Mail-ToAddress (Optional): Input the addresses to which the mail is sent.
                     If you have multiple addresses, then add addresses as a comma-separated string, such as someone@example.com,someone@example.com
-    Mail-Subject: Input the subject of the email message. 
-    Mail-SMTPServer: Input the name of the SMTP server that sends the email message.
+    Mail-Subject (Optional): Input the subject of the email message.
+
 #>
 
 if (!(Get-Command Get-AutomationConnection -ErrorAction SilentlyContinue))
@@ -91,31 +113,37 @@ if ([string]::IsNullOrEmpty($FilterByEndTime))
     $FilterByEndTime = (get-date)
 }
 
-$Mail_SMTPServer = Get-AutomationVariable -Name "Mail-SMTPServer"
-if ($Mail_SMTPServer -eq $null) 
+$IsMailRequired = Get-AutomationVariable -Name "IsMailRequired" -ErrorAction SilentlyContinue
+if ([string]::IsNullOrEmpty($IsMailRequired)) 
+{ 
+    throw "The IsMailRequired asset has not been created in the Automation service."  
+}
+
+$Mail_SMTPServer = Get-AutomationVariable -Name "Mail-SMTPServer" -ErrorAction SilentlyContinue
+if ($IsMailRequired -and [string]::IsNullOrEmpty($Mail_SMTPServer)) 
 { 
     throw "The Mail-SMTPServer asset has not been created in the Automation service."  
 }
 
-$Mail_ToAddress = Get-AutomationVariable -Name "Mail-ToAddress"
-if ($Mail_ToAddress -eq $null)
+$Mail_ToAddress = Get-AutomationVariable -Name "Mail-ToAddress" -ErrorAction SilentlyContinue
+if ($IsMailRequired -and [string]::IsNullOrEmpty($Mail_ToAddress))
 {
     throw "The Mail-ToAddress asset has not been created in the Automation service."
 }
 
-$Mail_Subject = Get-AutomationVariable -Name "Mail-Subject"
-if ($Mail_Subject -eq $null)
+$Mail_Subject = Get-AutomationVariable -Name "Mail-Subject" -ErrorAction SilentlyContinue
+if ($IsMailRequired -and [string]::IsNullOrEmpty($Mail_Subject))
 {
     throw "The Mail-Subject asset has not been created in the Automation service."
 }
 
-$Mail_Credential = Get-AutomationPSCredential -Name "Mail-Credential"
-if ($Mail_Credential -eq $null)
+$Mail_Credential = Get-AutomationPSCredential -Name "Mail-Credential" -ErrorAction SilentlyContinue
+if ($IsMailRequired -and [string]::IsNullOrEmpty($Mail_Credential))
 {
     throw "The Mail-Credential asset has not been created in the Automation service."
 }
 
-$ClientCertificate = Get-AutomationCertificate -Name AzureRunAsCertificate
+$ClientCertificate = Get-AutomationCertificate -Name "AzureRunAsCertificate"
 if ($ClientCertificate -eq $null)
 {
     throw "The AzureRunAsCertificate asset has not been created in the Automation service."
@@ -146,11 +174,13 @@ if ($TenantId -eq $null) {
    throw "Could not retrieve ApplicationId."
 }
 
-# Get from address 
-$Mail_FromAddress = $Mail_Credential.UserName
-$Mail_Subject = $Mail_Subject + " " + (Get-Date -Format "dd-MMM-yyyy")
-$Mail_ToAddress = $Mail_ToAddress -split ','
-
+if ($IsMailRequired)
+{
+    # Get from address 
+    $Mail_FromAddress = $Mail_Credential.UserName
+    $Mail_Subject = $Mail_Subject + " " + (Get-Date -Format "dd-MMM-yyyy")
+    $Mail_ToAddress = $Mail_ToAddress -split ','
+}
 # Set Current directory path
 $ScriptDirectory = "C:\Modules\User\Microsoft.Azure.Management.StorSimple8000Series"
 #ls $ScriptDirectory
@@ -314,43 +344,43 @@ try {
             $ProvisionedVolumeSize = Convert-Size "Bytes" $Device.ProvisionedVolumeSizeInBytes
             $UsingStorage = Convert-Size "Bytes" $Device.UsingStorageInBytes            
             $object = New-Object System.Object
-            $object | Add-Member –Type NoteProperty –Name "Device Name" -Value $Device.Name            
+            $object | Add-Member -Type NoteProperty -Name "Device Name" -Value $Device.Name            
             #StorSimple cloud appliances (8010/8020) doesn't support locally-pinned volumes.
             if ( $Device.ModelDescription -ne "8010" -and $Device.ModelDescription -ne "8020" ) {
-                $object | Add-Member –Type NoteProperty –Name "Available" -Value "Local=$AvailableLocalStorage Or Tiered=$AvailableTieredStorage"  
+                $object | Add-Member -Type NoteProperty -Name "Available" -Value "Local=$AvailableLocalStorage Or Tiered=$AvailableTieredStorage"  
             } else {
-                $object | Add-Member –Type NoteProperty –Name "Available" -Value "Tiered=$AvailableTieredStorage"     
+                $object | Add-Member -Type NoteProperty -Name "Available" -Value "Tiered=$AvailableTieredStorage"     
             }
 
 
             #Provisioned Tiered Storage
-            $object | Add-Member –Type NoteProperty –Name "Prov. Tiered" -Value "$ProvisionedTieredStorage"
+            $object | Add-Member -Type NoteProperty -Name "Prov. Tiered" -Value "$ProvisionedTieredStorage"
             
             #StorSimple cloud appliances (8010/8020) doesn't support locally-pinned volumes.
             #Provisioned Local Storage
             if ( $Device.ModelDescription -ne "8010" -and $Device.ModelDescription -ne "8020" ) {
-                $object | Add-Member –Type NoteProperty –Name "Prov. Local" -Value "$ProvisionedLocalStorage"
+                $object | Add-Member -Type NoteProperty -Name "Prov. Local" -Value "$ProvisionedLocalStorage"
             } else {
-                $object | Add-Member –Type NoteProperty –Name "Prov. Local" -Value "-"
+                $object | Add-Member -Type NoteProperty -Name "Prov. Local" -Value "-"
             }
             
-            $object | Add-Member –Type NoteProperty –Name "Prov. Volume" -Value "$ProvisionedVolumeSize"
-            $object | Add-Member –Type NoteProperty –Name "Usage" -Value "$UsingStorage"
+            $object | Add-Member -Type NoteProperty -Name "Prov. Volume" -Value "$ProvisionedVolumeSize"
+            $object | Add-Member -Type NoteProperty -Name "Usage" -Value "$UsingStorage"
             
             if ( $Device.ModelDescription -eq "8100" ) {
                 #$MaximumCapacityBytes = 200 * 1024 * 1024 * 1024 * 1024
-                $object | Add-Member –Type NoteProperty –Name "Max" -Value "200 TB"                
+                $object | Add-Member -Type NoteProperty -Name "Max" -Value "200 TB"                
             } elseif ( $Device.ModelDescription -eq "8600" ) {
                 #$MaximumCapacityBytes = 500 * 1024 * 1024 * 1024 * 1024
-                $object | Add-Member –Type NoteProperty –Name "Max" -Value "500 TB"
+                $object | Add-Member -Type NoteProperty -Name "Max" -Value "500 TB"
             } elseif ( $Device.ModelDescription -eq "8010" ) {
                 #$MaximumCapacityBytes = 30 * 1024 * 1024 * 1024 * 1024
-                $object | Add-Member –Type NoteProperty –Name "Max" -Value "30 TB"
+                $object | Add-Member -Type NoteProperty -Name "Max" -Value "30 TB"
             } elseif ( $Device.ModelDescription -eq "8020" ) {
                 #$MaximumCapacityBytes = 64 * 1024 * 1024 * 1024 * 1024
-                $object | Add-Member –Type NoteProperty –Name "Max" -Value "64 TB"
+                $object | Add-Member -Type NoteProperty -Name "Max" -Value "64 TB"
             } else {
-                $object | Add-Member –Type NoteProperty –Name "Max" -Value "-"
+                $object | Add-Member -Type NoteProperty -Name "Max" -Value "-"
             }
             $DeviceUsageStats += $object  
         }
@@ -364,14 +394,17 @@ catch {
     break
 }
 
-# Send a mail
-$Mail_Body = ($DeviceUsageStats | ConvertTo-Html | Out-String)
-$Mail_Body = $Mail_Body -replace "<head>", "<head><style>body{font-family: 'Segoe UI',Arial,sans-serif; color: #366EC4; font-size: 13px;}table { border-right: 1px solid #434343;  border-top: 1px solid #434343; } th, td { border-left: 1px solid #434343; border-bottom: 1px solid #434343; padding: 5px 5px; }</style>"
-$Mail_Body = $Mail_Body -replace "<table>", "<table cellspacing='0' cellpadding='0' width='700px'>"
+if ($IsMailRequired)
+{
+    # Send a mail
+    $Mail_Body = ($DeviceUsageStats | ConvertTo-Html | Out-String)
+    $Mail_Body = $Mail_Body -replace "<head>", "<head><style>body{font-family: 'Segoe UI',Arial,sans-serif; color: #366EC4; font-size: 13px;}table { border-right: 1px solid #434343;  border-top: 1px solid #434343; } th, td { border-left: 1px solid #434343; border-bottom: 1px solid #434343; padding: 5px 5px; }</style>"
+    $Mail_Body = $Mail_Body -replace "<table>", "<table cellspacing='0' cellpadding='0' width='700px'>"
 
-Write-Output "Attempting to send a status mail"
-Send-MailMessage -Credential $Mail_Credential -From $Mail_FromAddress -To $Mail_ToAddress -Subject $Mail_Subject -SmtpServer $Mail_SMTPServer -Body $Mail_Body -BodyAsHtml:$true -UseSsl
-Write-Output "Mail sent successfully"
+    Write-Output "Attempting to send a status mail"
+    Send-MailMessage -Credential $Mail_Credential -From $Mail_FromAddress -To $Mail_ToAddress -Subject $Mail_Subject -SmtpServer $Mail_SMTPServer -Body $Mail_Body -BodyAsHtml:$true -UseSsl
+    Write-Output "Mail sent successfully"
+}
 
 # Print result
 Write-Output "StorSimple Device Usage details"
