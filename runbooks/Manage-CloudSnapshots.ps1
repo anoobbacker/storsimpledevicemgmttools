@@ -372,7 +372,7 @@ if ($IsMailRequired)
 {
     if ( $WhatIf ) 
     {
-        $Mail_Body += "<br /><br /><b>Summary:</b> <br /> Total backup catalog: $TotalSnapshotCnt <br /> Eligible for deletion backup catlog count: $OldSnapshotCnt<br /> Skipped backup catalog count: $SkippedSnapshotCnt"
+        $Mail_Body += "<br /><br /><b>Summary:</b> <br /> Total backup catalog: $TotalSnapshotCnt <br /> Eligible for deletion backup catalog count: $OldSnapshotCnt<br /> Skipped backup catalog count: $SkippedSnapshotCnt"
     }
     else {
         $Mail_Body += "<br /><br /><b>Summary:</b> <br /> Total backup catalog: $TotalSnapshotCnt <br /> Deleted backup catalog count: $OldSnapshotCnt<br /> Skipped backup catalog count: $SkippedSnapshotCnt"
@@ -387,7 +387,7 @@ Write-Output "`n`nSummary:"
 Write-Output "Total backup catalog: $TotalSnapshotCnt"
 if ( $WhatIf ) 
 {
-    Write-Output "Eligible for deletion backup catlog count: $OldSnapshotCnt"
+    Write-Output "Eligible for deletion backup catalog count: $OldSnapshotCnt"
 }
 else 
 {

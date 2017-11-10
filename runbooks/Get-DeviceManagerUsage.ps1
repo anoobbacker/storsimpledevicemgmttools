@@ -48,23 +48,32 @@
 
     9. Use below commands to create Variable assets & Credential asset in Azure Automation
 
-            Login-AzureRmAccount -SubscriptionName <sub-name>
-            $ResourceGroupName = "<res-group-name>"
-            $AutomationAccountName = "<automation-acc-name>"
+            $SubscriptionId = "[sub-id]"
+            $ResourceGroupName = "[res-group-name]"
+            $AutomationAccountName = "[automation-acc-name]"
+            $ManagerName = "[device-manager-name]"
+            $FilterByStartTime = "[filter-start-time]"
+            $FilterByEndTime = "[filter-end-time]"
+            $IsMailRequired = $true
+            $MailSmtpServer = "[server-name]"
+            $MailToAddress = "[to-email-address]"
+            $MailSubject = "[subject-name]"
+            $Creds = Get-Credential -Message "Enter the SMTP user log-in credentials"
 
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "ResourceGroupName" -Value "<value>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "ManagerName" -Value "<value>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "FilterByStartTime" -Value "<value>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "FilterByEndTime" -Value "<value>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "IsMailRequired" -Value "<$true/$fals>" -Encrypted <$true/$false>
-
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-SMTPServer" -Value "<value>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-ToAddress" -Value "<value>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Subject" -Value "<value>" -Encrypted <$true/$false>
-
-            $user = "<email-id>"
-            $cred = Get-Credential -Credential $user
-            New-AzureRmAutomationCredential -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Credential" -Value $cred
+            Login-AzureRmAccount 
+            Set-AzureRmContext -SubscriptionId "$SubscriptionId"
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "ResourceGroupName" -Value "$ResourceGroupName"
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "ManagerName" -Value "$ManagerName"
+            
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "FilterByStartTime" -Value "$FilterByStartTime"
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "FilterByEndTime" -Value "$FilterByEndTime"
+            
+            # e-mail related variables
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "IsMailRequired" -Value "$IsMailRequired"
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-SMTPServer" -Value "$MailSmtpServer"
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-ToAddress" -Value "$MailToAddress"
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Subject" -Value "$MailSubject"
+            New-AzureRmAutomationCredential -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Credential" -Value $Creds
 
      ----------------------------
 .PARAMS
@@ -81,7 +90,6 @@
     Mail-ToAddress (Optional): Input the addresses to which the mail is sent.
                     If you have multiple addresses, then add addresses as a comma-separated string, such as someone@example.com,someone@example.com
     Mail-Subject (Optional): Input the subject of the email message.
-
 #>
 
 if (!(Get-Command Get-AutomationConnection -ErrorAction SilentlyContinue))
@@ -181,6 +189,7 @@ if ($IsMailRequired)
     $Mail_Subject = $Mail_Subject + " " + (Get-Date -Format "dd-MMM-yyyy")
     $Mail_ToAddress = $Mail_ToAddress -split ','
 }
+
 # Set Current directory path
 $ScriptDirectory = "C:\Modules\User\Microsoft.Azure.Management.StorSimple8000Series"
 #ls $ScriptDirectory
@@ -192,11 +201,6 @@ $ScriptDirectory = "C:\Modules\User\Microsoft.Azure.Management.StorSimple8000Ser
 [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Newtonsoft.Json.dll")) | Out-Null
 [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.Azure.Authentication.dll")) | Out-Null
 [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Microsoft.Azure.Management.Storsimple8000series.dll")) | Out-Null
-
-# Print method
-Function PrettyWriter($Content, $Color = "Yellow") { 
-    Write-Host $Content -Foregroundcolor $Color 
-}
 
 Function GenerateCapacityFilter() {
     param([DateTime] $FilterByStartTime, [DateTime] $FilterByEndTime)

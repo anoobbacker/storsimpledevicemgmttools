@@ -47,24 +47,33 @@
     8. Import the runbook script (Monitor-Backup.ps1) as a Azure Automation Powershell runbook script, publish & execute it.
 
     9. Use below commands to create Variable assets & Credential asset in Azure Automation
-
-            Login-AzureRmAccount -SubscriptionName <sub-name>
-            $ResourceGroupName = "<res-group-name>"
-            $AutomationAccountName = "<automation-acc-name>"
-
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "ResourceGroupName" -Value "<value>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "ManagerName" -Value "<value>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "DeviceName" -Value "<value>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "NumberOfDaysForReport" -Value "<value>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "IsMailRequired" -Value "<$true/$fals>" -Encrypted <$true/$false>
-
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-SMTPServer" -Value "<value>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-ToAddress" -Value "<value>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Subject" -Value "<value>" -Encrypted <$true/$false>
-
-            $user = "<email-id>"
-            $cred = Get-Credential -Credential $user
-            New-AzureRmAutomationCredential -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Credential" -Value $cred
+            
+            $SubscriptionId = "[sub-id]"
+            $ResourceGroupName = "[res-group-name]"
+            $AutomationAccountName = "[automation-acc-name]"
+            $ManagerName = "[device-manager-name]"
+            $DeviceName = "[device-name]"
+            $NumberOfDaysForReport = "[number-of-days-for-report]"
+            $IsMailRequired = $true
+            $MailSmtpServer = "[server-name]"
+            $MailToAddress = "[to-email-address]"
+            $MailSubject = "[subject-name]"
+            $Creds = Get-Credential -Message "Enter the SMTP user log-in credentials"
+            
+            Login-AzureRmAccount 
+            Set-AzureRmContext -SubscriptionId "$SubscriptionId"
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "ResourceGroupName" -Value "$ResourceGroupName"
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "ManagerName" -Value "$ManagerName"
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "DeviceName" -Value "$DeviceName"
+            
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "NumberOfDaysForReport" -Value "$NumberOfDaysForReport"
+            
+            #e-mail related variables
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "IsMailRequired" -Value "$IsMailRequired"
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-SMTPServer" -Value "$MailSmtpServer"
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-ToAddress" -Value "$MailToAddress"
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Subject" -Value "$MailSubject"
+            New-AzureRmAutomationCredential -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Credential" -Value $Creds
 
      ----------------------------
 .PARAMS
