@@ -48,25 +48,40 @@
 
     9. Use below commands to create Variable assets & Credential asset in Azure Automation
 
-            Login-AzureRmAccount -SubscriptionName <sub-name>
-            $ResourceGroupName = "<res-group-name>"
-            $AutomationAccountName = "<automation-acc-name>"
+            $SubscriptionId = "[sub-id]"
+            $ResourceGroupName = "[res-group-name]"
+            $AutomationAccountName = "[automation-acc-name]"
+            $ManagerName = "[device-manager-name]"
+            $DeviceName = "[device-name]"
+            $BackupPolicyName = "[backup-policy-name]"
+            $RetentionInDays = [days-for-which-backups-needs-retained]
+            $IsMailRequired = $true
+            $MailSmtpServer = "[server-name]"
+            $MailToAddress = "[to-email-address]"
+            $MailSubject = "[subject-name]"
+            $WhatIf = $true
 
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "ResourceGroupName" -Value "<value>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "ManagerName" -Value "<value>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "DeviceName" -Value "<value>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "BackupPolicyName" -Value "<value>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "RetentionInDays" -Value "<value>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "WhatIf" -Value "<$true/$false>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "IsMailRequired" -Value "<$true/$fals>" -Encrypted <$true/$false>
+            $Creds = Get-Credential -Message "Enter the SMTP user log-in credentials"
 
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-SMTPServer" -Value "<value>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-ToAddress" -Value "<value>" -Encrypted <$true/$false>
-            New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Subject" -Value "<value>" -Encrypted <$true/$false>
+            Login-AzureRmAccount 
+            Set-AzureRmContext -SubscriptionId "$SubscriptionId"
 
-            $user = "<email-id>"
-            $cred = Get-Credential -Credential $user
-            New-AzureRmAutomationCredential -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Credential" -Value $cred
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "ResourceGroupName" -Value "$ResourceGroupName"
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "ManagerName" -Value "$ManagerName"
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "DeviceName" -Value "$DeviceName"
+            
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "BackupPolicyName" -Value "$BackupPolicyName"
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "RetentionInDays" -Value "$RetentionInDays"
+            
+            #whatif flag to be set to true post evaluation of the script
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "WhatIf" -Value "$WhatIf"
+            
+            #e-mail related variables
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "IsMailRequired" -Value "$IsMailRequired"
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-SMTPServer" -Value "$MailSmtpServer"
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-ToAddress" -Value "$MailToAddress"
+            New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Subject" -Value "$MailSubject"
+            New-AzureRmAutomationCredential -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Credential" -Value $Creds
 
      ----------------------------
 .PARAMS
@@ -210,11 +225,6 @@ $ScriptDirectory = "C:\Modules\User\Microsoft.Azure.Management.StorSimple8000Ser
 [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.Azure.Authentication.dll")) | Out-Null
 [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Microsoft.Azure.Management.Storsimple8000series.dll")) | Out-Null
 
-# Print method
-Function PrettyWriter($Content, $Color = "Yellow") { 
-    Write-Host $Content -Foregroundcolor $Color 
-}
-
 # Create a query filter
 Function GenerateBackupFilter() {
     param([String] $FilterByEntityId, [DateTime] $FilterByStartTime, [DateTime] $FilterByEndTime)
@@ -276,21 +286,22 @@ try {
 
     if ( $WhatIf ) 
     {
-        PrettyWriter "WhatIf: Perform manual backup." "Red"
-        $Mail_Body += "<br />WhatIf: Perform manual backup."
+        Write-Output "Step1. WhatIf: Perform manual backup."
+        $Mail_Body += 'The runbook is being triggered with -WhatIf $true. Neither the backup or deletion of backup will be triggered  if WhatIf flag is $true. WhatIf is provided to evaluate the script first before triggering the operations. Once the validation is complete, pass -WhatIf $false.'
+        $Mail_Body += "<br /><b>Step1</b>. WhatIf: Perform manual backup job for backup policy '$($BackupPolicyName)'."
     }
     else 
     {
-        Write-Output "Starting start a manual backup."
-        $Mail_Body += "<br />Starting start a manual backup ($BackupPolicyName)."
+        Write-Output "Step1. Trigger start a manual backup."
+        $Mail_Body += "<br /><b>Step1.</b> Trigger the manual backup job for backup policy '$($BackupPolicyName)': "
 
         $Result = [Microsoft.Azure.Management.StorSimple8000Series.BackupPoliciesOperationsExtensions]::BackupNowAsync($StorSimpleClient.BackupPolicies, $DeviceName, $BackupPolicyName, $BackupType, $ResourceGroupName, $ManagerName)
         if ($Result -ne $null -and $Result.IsFaulted) {
             Write-Output $Result.Exception
             break
         }
-        PrettyWriter "Successfully started the manual backup job."
-        $Mail_Body += "<br />Successfully started the manual backup job."
+        Write-Output "  Successfully completed triggering the manual backup job."
+        $Mail_Body += " Successfull <br />"
     }
 
     $CompletedSnapshots =@()
@@ -307,8 +318,8 @@ try {
     $TotalSnapshotCnt = 0
     $OldSnapshotCnt = 0
     $SkippedSnapshotCnt = 0
-    Write-Output "Find the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them. `nQuery: $BackupFilter<br />"
-    $Mail_Body += "<br /><br />Find the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them. <br /><b>Query:</b> $BackupFilter<br />"
+    Write-Output "Step2. Find the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them. `n    Query: $BackupFilter"
+    $Mail_Body += "<br /><b>Step2</b>. Find the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them. List backup catalog query: $BackupFilter<br />"
     foreach ($Snapshot in $CompletedSnapshots) 
     {
         $TotalSnapshotCnt++
@@ -320,23 +331,27 @@ try {
             try {
                 if ( $WhatIf ) 
                 {
-                    PrettyWriter "WhatIf: Trigger delete of snapshot $($SnapShotName) which was created on $($SnapshotStartTimeStamp)" "Red"
-                    $Mail_Body += "<br />WhatIf: Trigger delete of snapshot <b>$($SnapShotName)</b> which was created on <b>$($SnapshotStartTimeStamp)</b>"
+                    Write-Output "    $OldSnapshotCnt. WhatIf: Trigger delete of snapshot $($SnapShotName) which was created on $($SnapshotStartTimeStamp)"
+                    $Mail_Body += "&nbsp;&nbsp;&nbsp;&nbsp;<b>$OldSnapshotCnt</b>. WhatIf: Trigger delete of snapshot $($SnapShotName) which was created on $($SnapshotStartTimeStamp)<br/>"
                 }
                 else 
                 {
-                    PrettyWriter "Deleting $($SnapShotName) which was created on $($SnapshotStartTimeStamp)."
-                    $Mail_Body += "<br />Deleting <b>$($SnapShotName)</b> which was created on <b>$($SnapshotStartTimeStamp)</b>."
+                    Write-Output "    $OldSnapshotCnt. Deleting $($SnapShotName) which was created on $($SnapshotStartTimeStamp)."
+                    $Mail_Body += "&nbsp;&nbsp;&nbsp;&nbsp;<b>$OldSnapshotCnt</b>. Deleting $($SnapShotName) which was created on $($SnapshotStartTimeStamp): "
                     $Result = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::DeleteAsync($StorSimpleClient.Backups, $DeviceName, $SnapShotName, $ResourceGroupName, $ManagerName)
                     if ($Result -ne $null -and $Result.IsFaulted) {
                         Write-Error $Result.Exception
+                        $Mail_Body += " $($Result.Exception) <br />"
+                    } else 
+                    {
+                        $Mail_Body += " Successfull <br />"
                     }
                 }
             }
             catch {
                 # Print error details
                 Write-Error $_.Exception.Message
-                $Mail_Body = "<br /><br /><b>Exception:</b><br />$_.Exception.Message"
+                $Mail_Body = "<br /><br /><b>Exception:</b><br />$($_.Exception.Message)"
                 break
             }
         }
@@ -355,14 +370,28 @@ catch {
 
 if ($IsMailRequired)
 {
-    $Mail_Body += "<br /><br /><b>Summary details:</b> <br /> Total snapshots count: $TotalSnapshotCnt <br /> Old snapshots count: $OldSnapshotCnt<br /> Latest snapshots count: $SkippedSnapshotCnt"
+    if ( $WhatIf ) 
+    {
+        $Mail_Body += "<br /><br /><b>Summary:</b> <br /> Total backup catalog: $TotalSnapshotCnt <br /> Eligible for deletion backup catlog count: $OldSnapshotCnt<br /> Skipped backup catalog count: $SkippedSnapshotCnt"
+    }
+    else {
+        $Mail_Body += "<br /><br /><b>Summary:</b> <br /> Total backup catalog: $TotalSnapshotCnt <br /> Deleted backup catalog count: $OldSnapshotCnt<br /> Skipped backup catalog count: $SkippedSnapshotCnt"
+    }
     $Mail_Body += "</body></html>"
     Write-Output "`nAttempting to send a status mail"
     Send-MailMessage -Credential $Mail_Credential -From $Mail_FromAddress -To $Mail_ToAddress -Subject $Mail_Subject -SmtpServer $Mail_SMTPServer -Body $Mail_Body -BodyAsHtml:$true -UseSsl
     Write-Output "Mail sent successfully"
 }
 
-PrettyWriter "`n`nSummary details:"
-Write-Output "Total snapshots count: $TotalSnapshotCnt"
-Write-Output "Old snapshots Count: $OldSnapshotCnt"
-Write-Output "Latest Snapshots Count: $SkippedSnapshotCnt"
+Write-Output "`n`nSummary:"
+Write-Output "Total backup catalog: $TotalSnapshotCnt"
+if ( $WhatIf ) 
+{
+    Write-Output "Eligible for deletion backup catlog count: $OldSnapshotCnt"
+}
+else 
+{
+    Write-Output "Deleted backup catalog count: $OldSnapshotCnt"
+}
+
+Write-Output "Skipped backup catalog count: $SkippedSnapshotCnt"
