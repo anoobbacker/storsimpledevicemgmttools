@@ -233,7 +233,7 @@ try {
 
     $CompletedSnapshots = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::ListByDevice($StorSimpleClient.Backups, $DeviceName, $ResourceGroupName, $ManagerName, $oDataQuery)
 
-    Write-Output "Find the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them. Query: $BackupFilter"
+    Write-Output "Find the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them. `nQuery: $BackupFilter"
     foreach ($Snapshot in $CompletedSnapshots) 
     {
         $SnapShotName = $SnapShot.Name
@@ -249,6 +249,9 @@ try {
                 {
                     PrettyWriter "Deleting $($SnapShotName) which was created on $($SnapshotStartTimeStamp)."
                     $Result = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::DeleteAsync($StorSimpleClient.Backups, $DeviceName, $SnapShotName, $ResourceGroupName, $ManagerName)
+                    
+		            # Sleep before next snapshot delete
+                    Start-Sleep -Seconds 5
                     if ($Result -ne $null -and $Result.IsFaulted) {
                         Write-Error $Result.Exception
                     }
