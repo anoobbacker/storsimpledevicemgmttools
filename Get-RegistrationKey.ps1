@@ -1,6 +1,6 @@
 <#
 .DESCRIPTION
-    This scipt lists StorSimple device manager and usages of the devices under the manager.
+    This scipt generates the service registration key.
 
     Steps to execute the script: 
     ----------------------------
