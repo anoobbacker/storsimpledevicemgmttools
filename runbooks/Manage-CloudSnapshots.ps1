@@ -294,13 +294,10 @@ try {
     {
         Write-Output "Step1. Trigger start a manual backup."
         $Mail_Body += "<br /><b>Step1.</b> Trigger the manual backup job for backup policy '$($BackupPolicyName)': "
+        
+        [Microsoft.Azure.Management.StorSimple8000Series.BackupPoliciesOperationsExtensions]::BeginBackupNowAsync($StorSimpleClient.BackupPolicies, $DeviceName, $BackupPolicyName, $BackupType, $ResourceGroupName, $ManagerName).GetAwaiter().GetResult() | Out-Null
 
-        $Result = [Microsoft.Azure.Management.StorSimple8000Series.BackupPoliciesOperationsExtensions]::BackupNowAsync($StorSimpleClient.BackupPolicies, $DeviceName, $BackupPolicyName, $BackupType, $ResourceGroupName, $ManagerName)
-        if ($Result -ne $null -and $Result.IsFaulted) {
-            Write-Output $Result.Exception
-            break
-        }
-        Write-Output "  Successfully completed triggering the manual backup job."
+        Write-Output "  Successfully started the manual backup job."
         $Mail_Body += " Successfull <br />"
     }
 
@@ -318,8 +315,8 @@ try {
     $TotalSnapshotCnt = 0
     $OldSnapshotCnt = 0
     $SkippedSnapshotCnt = 0
-    Write-Output "Step2. Find the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them. `n    Query: $BackupFilter"
-    $Mail_Body += "<br /><b>Step2</b>. Find the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them. List backup catalog query: $BackupFilter<br />"
+    Write-Output "Step2. Find the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them.`n       Query: $BackupFilter"
+    $Mail_Body += "<br /><b>Step2</b>. Find the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them.<br />       List backup catalog query: <i>$BackupFilter</i><br />"
     foreach ($Snapshot in $CompletedSnapshots) 
     {
         $TotalSnapshotCnt++
@@ -328,31 +325,18 @@ try {
         if ($SnapshotStartTimeStamp -lt $ExpirationDate)
         {
             $OldSnapshotCnt++
-            try {
-                if ( $WhatIf ) 
-                {
-                    Write-Output "    $OldSnapshotCnt. WhatIf: Trigger delete of snapshot $($SnapShotName) which was created on $($SnapshotStartTimeStamp)"
-                    $Mail_Body += "&nbsp;&nbsp;&nbsp;&nbsp;<b>$OldSnapshotCnt</b>. WhatIf: Trigger delete of snapshot $($SnapShotName) which was created on $($SnapshotStartTimeStamp)<br/>"
-                }
-                else 
-                {
-                    Write-Output "    $OldSnapshotCnt. Deleting $($SnapShotName) which was created on $($SnapshotStartTimeStamp)."
-                    $Mail_Body += "&nbsp;&nbsp;&nbsp;&nbsp;<b>$OldSnapshotCnt</b>. Deleting $($SnapShotName) which was created on $($SnapshotStartTimeStamp): "
-                    $Result = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::DeleteAsync($StorSimpleClient.Backups, $DeviceName, $SnapShotName, $ResourceGroupName, $ManagerName)
-                    if ($Result -ne $null -and $Result.IsFaulted) {
-                        Write-Error $Result.Exception
-                        $Mail_Body += " $($Result.Exception) <br />"
-                    } else 
-                    {
-                        $Mail_Body += " Successfull <br />"
-                    }
-                }
+            if ( $WhatIf ) 
+            {
+                Write-Output "    $OldSnapshotCnt. WhatIf: Trigger delete of snapshot $($SnapShotName) which was created on $($SnapshotStartTimeStamp)"
+                $Mail_Body += "&nbsp;&nbsp;&nbsp;&nbsp;<b>$OldSnapshotCnt</b>. WhatIf: Trigger delete of snapshot $($SnapShotName) which was created on $($SnapshotStartTimeStamp)<br/>"
             }
-            catch {
-                # Print error details
-                Write-Error $_.Exception.Message
-                $Mail_Body = "<br /><br /><b>Exception:</b><br />$($_.Exception.Message)"
-                break
+            else 
+            {
+                Write-Output "    $OldSnapshotCnt. Deleting $($SnapShotName) which was created on $($SnapshotStartTimeStamp)."
+                $Mail_Body += "&nbsp;&nbsp;&nbsp;&nbsp;<b>$OldSnapshotCnt</b>. Deleting $($SnapShotName) which was created on $($SnapshotStartTimeStamp): "
+
+                [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::BeginDeleteAsync($StorSimpleClient.Backups, $DeviceName, $SnapShotName, $ResourceGroupName, $ManagerName).GetAwaiter().GetResult() | Out-Null
+                $Mail_Body += " Successfull <br />"
             }
         }
         else
@@ -365,7 +349,7 @@ try {
 catch {
     # Print error details
     Write-Error $_.Exception.Message
-    $Mail_Body = "<br /><br /><b>Exception:</b><br />$_.Exception.Message"
+    $Mail_Body = "<br /><br /><b>Exception:</b><br />$($_.Exception.Message)"
 }
 
 if ($IsMailRequired)
@@ -379,8 +363,13 @@ if ($IsMailRequired)
     }
     $Mail_Body += "</body></html>"
     Write-Output "`nAttempting to send a status mail"
-    Send-MailMessage -Credential $Mail_Credential -From $Mail_FromAddress -To $Mail_ToAddress -Subject $Mail_Subject -SmtpServer $Mail_SMTPServer -Body $Mail_Body -BodyAsHtml:$true -UseSsl
-    Write-Output "Mail sent successfully"
+    try {
+        Send-MailMessage -Credential $Mail_Credential -From $Mail_FromAddress -To $Mail_ToAddress -Subject $Mail_Subject -SmtpServer $Mail_SMTPServer -Body $Mail_Body -BodyAsHtml:$true -UseSsl
+        Write-Output "Mail sent successfully"
+    }
+    catch {
+        Write-Error $_.Exception.Message
+    }
 }
 
 Write-Output "`n`nSummary:"

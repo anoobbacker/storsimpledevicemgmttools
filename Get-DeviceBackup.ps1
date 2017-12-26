@@ -107,7 +107,7 @@ Param
 )
 
 # Set Current directory path
-$ScriptDirectory = (Get-Location).Path
+$ScriptDirectory = $PSScriptRoot
 
 # Set dll path
 $ActiveDirectoryPath = Join-Path $ScriptDirectory "Microsoft.IdentityModel.Clients.ActiveDirectory.2.28.3\lib\net45\Microsoft.IdentityModel.Clients.ActiveDirectory.dll"
@@ -150,7 +150,7 @@ Function GenerateQueryFilter() {
         }
         if ( $FilterByEntityId -like "*/backupPolicies/*" ) {
             $queryFilter += "backupPolicyId eq '$($FilterByEntityId)'"
-        } else {
+        } elseif ( $FilterByEntityId -like "*/volumeContainers/*" ) {
             $queryFilter += "volumeId eq '$($FilterByEntityId)'"
         }
     }
@@ -166,54 +166,56 @@ $DomainId = "1950a258-227b-4e31-a9cf-717495945fc2"
 $FrontdoorUri = New-Object System.Uri -ArgumentList $FrontdoorUrl
 $TokenUri = New-Object System.Uri -ArgumentList $TokenUrl
 
-# Set Synchronization context
-$SyncContext = New-Object System.Threading.SynchronizationContext
-[System.Threading.SynchronizationContext]::SetSynchronizationContext($SyncContext)
-
-# Verify Credentials
-if ("UserNamePassword".Equals($AuthNType)) {    
-    # Username password
-    $AADClient = [Microsoft.Rest.Azure.Authentication.ActiveDirectoryClientSettings]::UsePromptOnly($DomainId, $FrontdoorUri)
-    $Credentials = [Microsoft.Rest.Azure.Authentication.UserTokenProvider]::LoginWithPromptAsync($TenantId, $AADClient).GetAwaiter().GetResult()
-} elseif ("AuthenticationKey".Equals($AuthNType) ) {
-    # AAD Application authentication key
-    if ( [string]::IsNullOrEmpty($AADAppId) -or [string]::IsNullOrEmpty($AADAppAuthNKey) ) {
-        throw "Invalid inputs! Ensure that you input the arguments -AADAppId and -AADAppAuthNKey."
-    }
-	
-    $Credentials =[Microsoft.Rest.Azure.Authentication.ApplicationTokenProvider]::LoginSilentAsync($TenantId, $AADAppId, $AADAppAuthNKey).GetAwaiter().GetResult();
-} elseif ("Certificate".Equals($AuthNType) ) {
-    # AAD Service Principal Certificates
-    if ( [string]::IsNullOrEmpty($AADAppId) -or [string]::IsNullOrEmpty($AADAppAuthNCertPassword) -or [string]::IsNullOrEmpty($AADAppAuthNCertPath) ) {
-        throw "Invalid inputs! Ensure that you input the arguments -AADAppId, -AADAppAuthNCertPath and -AADAppAuthNCertPassword."
-    }    
-    if ( !(Test-Path $AADAppAuthNCertPath) ) {
-        throw "Certificate file $AADAppAuthNCertPath couldn't found!"    
-    }
-	
-    $CertPassword = ConvertTo-SecureString $AADAppAuthNCertPassword -AsPlainText -Force
-    $ClientCertificate = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2 -ArgumentList @($AADAppAuthNCertPath, $CertPassword)
-        
-    $ClientAssertionCertificate = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.ClientAssertionCertificate -ArgumentList $AADAppId, $ClientCertificate
-        
-    $Credentials = [Microsoft.Rest.Azure.Authentication.ApplicationTokenProvider]::LoginSilentWithCertificateAsync($TenantId, $ClientAssertionCertificate).GetAwaiter().GetResult()
-}
-
-if ($Credentials -eq $null) {
-    throw "Failed to authenticate!"
-}
-
-# Get StorSimpleClient instance
-$StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.StorSimple8000SeriesManagementClient -ArgumentList $TokenUri, $Credentials
-
-# Set SubscriptionId
-$StorSimpleClient.SubscriptionId = $SubscriptionId
-
-$BackupQuery = GenerateQueryFilter $FilterByEntityId $FilterByStartTime $FilterByEndTime
-
-# Get backups by Device
 try {
+    # Set Synchronization context
+    $SyncContext = New-Object System.Threading.SynchronizationContext
+    [System.Threading.SynchronizationContext]::SetSynchronizationContext($SyncContext)
+
+    # Verify Credentials
+    if ("UserNamePassword".Equals($AuthNType)) {    
+        # Username password
+        $AADClient = [Microsoft.Rest.Azure.Authentication.ActiveDirectoryClientSettings]::UsePromptOnly($DomainId, $FrontdoorUri)
+        $Credentials = [Microsoft.Rest.Azure.Authentication.UserTokenProvider]::LoginWithPromptAsync($TenantId, $AADClient).GetAwaiter().GetResult()
+    } elseif ("AuthenticationKey".Equals($AuthNType) ) {
+        # AAD Application authentication key
+        if ( [string]::IsNullOrEmpty($AADAppId) -or [string]::IsNullOrEmpty($AADAppAuthNKey) ) {
+            throw "Invalid inputs! Ensure that you input the arguments -AADAppId and -AADAppAuthNKey."
+        }
+	
+        $Credentials =[Microsoft.Rest.Azure.Authentication.ApplicationTokenProvider]::LoginSilentAsync($TenantId, $AADAppId, $AADAppAuthNKey).GetAwaiter().GetResult();
+    } elseif ("Certificate".Equals($AuthNType) ) {
+        # AAD Service Principal Certificates
+        if ( [string]::IsNullOrEmpty($AADAppId) -or [string]::IsNullOrEmpty($AADAppAuthNCertPassword) -or [string]::IsNullOrEmpty($AADAppAuthNCertPath) ) {
+            throw "Invalid inputs! Ensure that you input the arguments -AADAppId, -AADAppAuthNCertPath and -AADAppAuthNCertPassword."
+        }    
+        if ( !(Test-Path $AADAppAuthNCertPath) ) {
+            throw "Certificate file $AADAppAuthNCertPath couldn't found!"    
+        }
+	
+        $CertPassword = ConvertTo-SecureString $AADAppAuthNCertPassword -AsPlainText -Force
+        $ClientCertificate = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2 -ArgumentList @($AADAppAuthNCertPath, $CertPassword)
+        
+        $ClientAssertionCertificate = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.ClientAssertionCertificate -ArgumentList $AADAppId, $ClientCertificate
+        
+        $Credentials = [Microsoft.Rest.Azure.Authentication.ApplicationTokenProvider]::LoginSilentWithCertificateAsync($TenantId, $ClientAssertionCertificate).GetAwaiter().GetResult()
+    }
+
+    if ($Credentials -eq $null) {
+        throw "Failed to authenticate!"
+    }
+
+    # Get StorSimpleClient instance
+    $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.StorSimple8000SeriesManagementClient -ArgumentList $TokenUri, $Credentials
+
+    # Set SubscriptionId
+    $StorSimpleClient.SubscriptionId = $SubscriptionId
+
+    $BackupQuery = GenerateQueryFilter $FilterByEntityId $FilterByStartTime $FilterByEndTime
+
     $oDataQuery = New-Object Microsoft.Rest.Azure.OData.ODataQuery[Microsoft.Azure.Management.StorSimple8000Series.Models.BackupFilter] -ArgumentList $BackupQuery
+    PrettyWriter $oDataQuery "Yellow"
+
+    # Get backups by Device
     $Backups = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::ListByDevice($StorSimpleClient.Backups, $DeviceName, $ResourceGroupName, $ManagerName,$oDataQuery)
 }
 catch {

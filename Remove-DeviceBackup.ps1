@@ -90,7 +90,7 @@ Param
 )
 
 # Set Current directory path
-$ScriptDirectory = (Get-Location).Path
+$ScriptDirectory = $PSScriptRoot
 
 # Set dll path
 $ActiveDirectoryPath = Join-Path $ScriptDirectory "Microsoft.IdentityModel.Clients.ActiveDirectory.2.28.3\lib\net45\Microsoft.IdentityModel.Clients.ActiveDirectory.dll"
@@ -118,65 +118,58 @@ $FrontdoorUrl = "urn:ietf:wg:oauth:2.0:oob"
 $TokenUrl = "https://management.azure.com"   # Run 'Get-AzureRmEnvironment | Select-Object Name, ResourceManagerUrl' cmdlet to get the Fairfax url.
 $DomainId = "1950a258-227b-4e31-a9cf-717495945fc2"
 
-$FrontdoorUri = New-Object System.Uri -ArgumentList $FrontdoorUrl
-$TokenUri = New-Object System.Uri -ArgumentList $TokenUrl
-
-# Set Synchronization context
-$SyncContext = New-Object System.Threading.SynchronizationContext
-[System.Threading.SynchronizationContext]::SetSynchronizationContext($SyncContext)
-
-# Verify Credentials
-if ("UserNamePassword".Equals($AuthNType)) {    
-    # Username password
-    $AADClient = [Microsoft.Rest.Azure.Authentication.ActiveDirectoryClientSettings]::UsePromptOnly($DomainId, $FrontdoorUri)
-    $Credentials = [Microsoft.Rest.Azure.Authentication.UserTokenProvider]::LoginWithPromptAsync($TenantId, $AADClient).GetAwaiter().GetResult()
-} elseif ("AuthenticationKey".Equals($AuthNType) ) {
-    # AAD Application authentication key
-    if ( [string]::IsNullOrEmpty($AADAppId) -or [string]::IsNullOrEmpty($AADAppAuthNKey) ) {
-        throw "Invalid inputs! Ensure that you input the arguments -AADAppId and -AADAppAuthNKey."
-    }
-	
-    $Credentials =[Microsoft.Rest.Azure.Authentication.ApplicationTokenProvider]::LoginSilentAsync($TenantId, $AADAppId, $AADAppAuthNKey).GetAwaiter().GetResult();
-} elseif ("Certificate".Equals($AuthNType) ) {
-    # AAD Service Principal Certificates
-    if ( [string]::IsNullOrEmpty($AADAppId) -or [string]::IsNullOrEmpty($AADAppAuthNCertPassword) -or [string]::IsNullOrEmpty($AADAppAuthNCertPath) ) {
-        throw "Invalid inputs! Ensure that you input the arguments -AADAppId, -AADAppAuthNCertPath and -AADAppAuthNCertPassword."
-    }    
-    if ( !(Test-Path $AADAppAuthNCertPath) ) {
-        throw "Certificate file $AADAppAuthNCertPath couldn't found!"    
-    }
-	
-    $CertPassword = ConvertTo-SecureString $AADAppAuthNCertPassword -AsPlainText -Force
-    $ClientCertificate = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2 -ArgumentList @($AADAppAuthNCertPath, $CertPassword)
-        
-    $ClientAssertionCertificate = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.ClientAssertionCertificate -ArgumentList $AADAppId, $ClientCertificate
-        
-    $Credentials = [Microsoft.Rest.Azure.Authentication.ApplicationTokenProvider]::LoginSilentWithCertificateAsync($TenantId, $ClientAssertionCertificate).GetAwaiter().GetResult()
-}
-
-if ($Credentials -eq $null) {
-    throw "Failed to authenticate!"
-}
-
-# Get StorSimpleClient instance
-$StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.StorSimple8000SeriesManagementClient -ArgumentList $TokenUri, $Credentials
-
-# Set SubscriptionId
-$StorSimpleClient.SubscriptionId = $SubscriptionId
-
-# Get all backup policies by Device
 try {
-    $BackupResult = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::DeleteAsync($StorSimpleClient.Backups, $DeviceName, $BackupName, $ResourceGroupName, $ManagerName)
-    
-    if ($BackupResult -ne $null -and $BackupResult.IsFaulted) {
-        Write-Error $BackupResult.Exception
+    $FrontdoorUri = New-Object System.Uri -ArgumentList $FrontdoorUrl
+    $TokenUri = New-Object System.Uri -ArgumentList $TokenUrl
+
+    # Set Synchronization context
+    $SyncContext = New-Object System.Threading.SynchronizationContext
+    [System.Threading.SynchronizationContext]::SetSynchronizationContext($SyncContext)
+
+    # Verify Credentials
+    if ("UserNamePassword".Equals($AuthNType)) {    
+        # Username password
+        $AADClient = [Microsoft.Rest.Azure.Authentication.ActiveDirectoryClientSettings]::UsePromptOnly($DomainId, $FrontdoorUri)
+        $Credentials = [Microsoft.Rest.Azure.Authentication.UserTokenProvider]::LoginWithPromptAsync($TenantId, $AADClient).GetAwaiter().GetResult()
+    } elseif ("AuthenticationKey".Equals($AuthNType) ) {
+        # AAD Application authentication key
+        if ( [string]::IsNullOrEmpty($AADAppId) -or [string]::IsNullOrEmpty($AADAppAuthNKey) ) {
+            throw "Invalid inputs! Ensure that you input the arguments -AADAppId and -AADAppAuthNKey."
+        }
+	
+        $Credentials =[Microsoft.Rest.Azure.Authentication.ApplicationTokenProvider]::LoginSilentAsync($TenantId, $AADAppId, $AADAppAuthNKey).GetAwaiter().GetResult();
+    } elseif ("Certificate".Equals($AuthNType) ) {
+        # AAD Service Principal Certificates
+        if ( [string]::IsNullOrEmpty($AADAppId) -or [string]::IsNullOrEmpty($AADAppAuthNCertPassword) -or [string]::IsNullOrEmpty($AADAppAuthNCertPath) ) {
+            throw "Invalid inputs! Ensure that you input the arguments -AADAppId, -AADAppAuthNCertPath and -AADAppAuthNCertPassword."
+        }    
+        if ( !(Test-Path $AADAppAuthNCertPath) ) {
+            throw "Certificate file $AADAppAuthNCertPath couldn't found!"    
+        }
+	
+        $CertPassword = ConvertTo-SecureString $AADAppAuthNCertPassword -AsPlainText -Force
+        $ClientCertificate = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2 -ArgumentList @($AADAppAuthNCertPath, $CertPassword)
+        
+        $ClientAssertionCertificate = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.ClientAssertionCertificate -ArgumentList $AADAppId, $ClientCertificate
+        
+        $Credentials = [Microsoft.Rest.Azure.Authentication.ApplicationTokenProvider]::LoginSilentWithCertificateAsync($TenantId, $ClientAssertionCertificate).GetAwaiter().GetResult()
     }
-    else {
-        Write-Output "Backup deleted successfully."
+
+    if ($Credentials -eq $null) {
+        throw "Failed to authenticate!"
     }
+
+    # Get StorSimpleClient instance
+    $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.StorSimple8000SeriesManagementClient -ArgumentList $TokenUri, $Credentials
+
+    # Set SubscriptionId
+    $StorSimpleClient.SubscriptionId = $SubscriptionId
+
+    [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::BeginDeleteAsync($StorSimpleClient.Backups, $DeviceName, $BackupName, $ResourceGroupName, $ManagerName).GetAwaiter().GetResult() | Out-Null
+
+    Write-Output "Successfully started deletion of the snapshot."
 }
 catch {
     # Print error details
     Write-Error $_.Exception.Message
-    break
 }

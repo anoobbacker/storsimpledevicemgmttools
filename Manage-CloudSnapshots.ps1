@@ -104,7 +104,7 @@ Param
 )
 
 # Set Current directory path
-$ScriptDirectory = (Get-Location).Path
+$ScriptDirectory = $PSScriptRoot
 
 # Load all required assemblies
 [System.Reflection.Assembly]::LoadFrom((Join-Path $ScriptDirectory "Microsoft.IdentityModel.Clients.ActiveDirectory.2.28.3\lib\net45\Microsoft.IdentityModel.Clients.ActiveDirectory.dll")) | Out-Null
@@ -200,68 +200,52 @@ try {
     $StorSimpleClient.SubscriptionId = $SubscriptionId
 
     # Set backup expiration date
-    $Today = Get-Date
+    $Today = (Get-Date).ToUniversalTime()
     $ExpirationDate = $Today.AddDays(-$RetentionInDays)
 
     # Set backup type (CloudSnapshot)
     $BackupType = 'CloudSnapshot'
-
+    
     if ( $WhatIf ) 
     {
         PrettyWriter "WhatIf: Perform manual backup." "Red"
     }
     else 
     {
-        Write-Output "Starting start a manual backup."
-
-        $Result = [Microsoft.Azure.Management.StorSimple8000Series.BackupPoliciesOperationsExtensions]::BackupNowAsync($StorSimpleClient.BackupPolicies, $DeviceName, $BackupPolicyName, $BackupType, $ResourceGroupName, $ManagerName)
-        if ($Result -ne $null -and $Result.IsFaulted) {
-            Write-Output $Result.Exception
-            break
-        }
-        PrettyWriter "Successfully started the manual backup job."
+        Write-Output "Starting a manual backup."        
+        [Microsoft.Azure.Management.StorSimple8000Series.BackupPoliciesOperationsExtensions]::BeginBackupNowAsync($StorSimpleClient.BackupPolicies, $DeviceName, $BackupPolicyName, $BackupType, $ResourceGroupName, $ManagerName).GetAwaiter().GetResult() | Out-Null        
+        PrettyWriter "Successfully started the manual backup." "Yellow"
     }
 
     $CompletedSnapshots =@()
 
     # Get all backups by Device
     $BackupPolicyId = "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.StorSimple/managers/$ManagerName/devices/$DeviceName/backupPolicies/$BackupPolicyName"
-    $BackupStartTime = Get-Date -Date "1970-01-01 00:00:00Z"
+    $BackupStartTime = (Get-Date -Date "1970-01-01 00:00:00Z").ToUniversalTime()
     $BackupFilter = GenerateBackupFilter $BackupPolicyId $BackupStartTime $ExpirationDate
 
     $oDataQuery = New-Object Microsoft.Rest.Azure.OData.ODataQuery[Microsoft.Azure.Management.StorSimple8000Series.Models.BackupFilter] -ArgumentList $BackupFilter
 
     $CompletedSnapshots = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::ListByDevice($StorSimpleClient.Backups, $DeviceName, $ResourceGroupName, $ManagerName, $oDataQuery)
 
-    Write-Output "Find the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them. `nQuery: $BackupFilter"
+    Write-Output "`nFind the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them."
+    PrettyWriter "Query: $BackupFilter`n" "Yellow"
     foreach ($Snapshot in $CompletedSnapshots) 
     {
         $SnapShotName = $SnapShot.Name
         $SnapshotStartTimeStamp = $Snapshot.CreatedOn
         if ($SnapshotStartTimeStamp -lt $ExpirationDate)
         {
-            try {
-                if ( $WhatIf ) 
-                {
-                    PrettyWriter "WhatIf: Trigger delete of snapshot $($SnapShotName) which was created on $($SnapshotStartTimeStamp)" "Red"
-                }
-                else 
-                {
-                    PrettyWriter "Deleting $($SnapShotName) which was created on $($SnapshotStartTimeStamp)."
-                    $Result = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::DeleteAsync($StorSimpleClient.Backups, $DeviceName, $SnapShotName, $ResourceGroupName, $ManagerName)
-                    
-		            # Sleep before next snapshot delete
-                    Start-Sleep -Seconds 5
-                    if ($Result -ne $null -and $Result.IsFaulted) {
-                        Write-Error $Result.Exception
-                    }
-                }
+            if ( $WhatIf ) 
+            {
+                PrettyWriter "WhatIf: Trigger delete of snapshot $($SnapShotName) which was created on $($SnapshotStartTimeStamp)" "Red"
             }
-            catch {
-                # Print error details
-                Write-Error $_.Exception.Message
-                break
-            } 
+            else 
+            {
+                Write-Output "Deleting $($SnapShotName) which was created on $($SnapshotStartTimeStamp)."                
+                [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::BeginDeleteAsync($StorSimpleClient.Backups, $DeviceName, $SnapShotName, $ResourceGroupName, $ManagerName).GetAwaiter().GetResult() | Out-Null                
+                PrettyWriter "Successfully started deletion of snapshot $($SnapShotName) which was created on $($SnapshotStartTimeStamp)." "Yellow"
+            }
         }
         else
         {
@@ -272,5 +256,4 @@ try {
 catch {
     # Print error details
     Write-Error $_.Exception.Message
-    exit
 }
