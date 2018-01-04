@@ -213,7 +213,7 @@ try {
     else 
     {
         Write-Output "Starting a manual backup."        
-        [Microsoft.Azure.Management.StorSimple8000Series.BackupPoliciesOperationsExtensions]::BeginBackupNowAsync($StorSimpleClient.BackupPolicies, $DeviceName, $BackupPolicyName, $BackupType, $ResourceGroupName, $ManagerName).GetAwaiter().GetResult() | Out-Null        
+        [Microsoft.Azure.Management.StorSimple8000Series.BackupPoliciesOperationsExtensions]::BeginBackupNow($StorSimpleClient.BackupPolicies, $DeviceName, $BackupPolicyName, $BackupType, $ResourceGroupName, $ManagerName)
         PrettyWriter "Successfully started the manual backup." "Yellow"
     }
 
@@ -243,7 +243,7 @@ try {
             else 
             {
                 Write-Output "Deleting $($SnapShotName) which was created on $($SnapshotStartTimeStamp)."                
-                [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::BeginDeleteAsync($StorSimpleClient.Backups, $DeviceName, $SnapShotName, $ResourceGroupName, $ManagerName).GetAwaiter().GetResult() | Out-Null                
+                [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::BeginDelete($StorSimpleClient.Backups, $DeviceName, $SnapShotName, $ResourceGroupName, $ManagerName)
                 PrettyWriter "Successfully started deletion of snapshot $($SnapShotName) which was created on $($SnapshotStartTimeStamp)." "Yellow"
             }
         }

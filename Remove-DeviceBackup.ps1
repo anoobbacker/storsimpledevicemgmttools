@@ -165,7 +165,7 @@ try {
     # Set SubscriptionId
     $StorSimpleClient.SubscriptionId = $SubscriptionId
 
-    [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::BeginDeleteAsync($StorSimpleClient.Backups, $DeviceName, $BackupName, $ResourceGroupName, $ManagerName).GetAwaiter().GetResult() | Out-Null
+    [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::BeginDelete($StorSimpleClient.Backups, $DeviceName, $BackupName, $ResourceGroupName, $ManagerName)
 
     Write-Output "Successfully started deletion of the snapshot."
 }
