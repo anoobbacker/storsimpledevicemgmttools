@@ -173,7 +173,7 @@ try {
     $StorSimpleClient.SubscriptionId = $SubscriptionId
 
     # Get all backup policies by Device
-    [Microsoft.Azure.Management.StorSimple8000Series.BackupPoliciesOperationsExtensions]::BeginBackupNowAsync($StorSimpleClient.BackupPolicies, $DeviceName, $BackupPolicyName, $BackupType, $ResourceGroupName, $ManagerName).GetAwaiter().GetResult() | Out-Null
+    [Microsoft.Azure.Management.StorSimple8000Series.BackupPoliciesOperationsExtensions]::BeginBackupNow($StorSimpleClient.BackupPolicies, $DeviceName, $BackupPolicyName, $BackupType, $ResourceGroupName, $ManagerName)
     
     Write-Output "Backup job started successfully."
 }
