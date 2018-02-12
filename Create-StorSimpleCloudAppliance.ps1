@@ -144,7 +144,7 @@ else
 
 $customData = ""
 $customData += "`r`nModelNumber=$ModelNumber"
-$customData += "`r`nRegistrationKey=$RegistrationKey"
+$customData += "`r`nRegistrationKey=$TrimmedRegKey"
 $customData += "`r`nTrackingId=$random"
 
 $secpasswd = ConvertTo-SecureString "StorSim1StorSim1" -AsPlainText -Force
