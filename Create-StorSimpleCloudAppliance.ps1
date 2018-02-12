@@ -133,10 +133,18 @@ $iPconfig = New-AzureRmNetworkInterfaceIpConfig -Name "ipconfig1" -PrivateIpAddr
 $nic = New-AzureRmNetworkInterface -Name $nicName -ResourceGroupName $ResourceGroup -Location $location -IpConfiguration $iPconfig
 $nicId = $nic.Id
 
-$TrimmedRegKey=$RegistrationKey.Substring(0, $RegistrationKey.LastIndexOf(':'))
+if($RegistrationKey.LastIndexOf(':') != -1)
+{
+	$TrimmedRegKey=$RegistrationKey.Substring(0, $RegistrationKey.LastIndexOf(':'))
+}
+else
+{
+	$TrimmedRegKey=$RegistrationKey
+}
+
 $customData = ""
 $customData += "`r`nModelNumber=$ModelNumber"
-$customData += "`r`nRegistrationKey=$TrimmedRegKey"
+$customData += "`r`nRegistrationKey=$RegistrationKey"
 $customData += "`r`nTrackingId=$random"
 
 $secpasswd = ConvertTo-SecureString "StorSim1StorSim1" -AsPlainText -Force
