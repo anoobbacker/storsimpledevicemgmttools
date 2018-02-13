@@ -126,6 +126,37 @@ Function PrettyWriter($Content, $Color = "Yellow") {
     Write-Host $Content -Foregroundcolor $Color 
 }
 
+
+# Create a query filter
+Function GenerateBackupFilter() {
+    param([String] $FilterByEntityId, [DateTime] $FilterByStartTime, [DateTime] $FilterByEndTime)
+    $queryFilter = $null
+    if ($FilterByStartTime -ne $null) {
+        $queryFilter = "createdTime ge '$($FilterByStartTime.ToString('r'))'"
+    }
+
+    if($FilterByEndTime -ne $null) {
+        if(![string]::IsNullOrEmpty($queryFilter)) {
+            $queryFilter += " and "
+        }
+        $queryFilter += "createdTime le '$($FilterByEndTime.ToString('r'))'"
+    }
+
+    if ( !([string]::IsNullOrEmpty($FilterByEntityId)) ) {
+        if(![string]::IsNullOrEmpty($queryFilter)) {
+            $queryFilter += " and "
+        }
+        if ( $FilterByEntityId -like "*/backupPolicies/*" ) {
+            $queryFilter += "backupPolicyId eq '$($FilterByEntityId)'"
+        } else {
+            $queryFilter += "volumeId eq '$($FilterByEntityId)'"
+        }
+    }
+
+    return $queryFilter
+}
+
+
 # Define constant variables (DO NOT CHANGE BELOW VALUES)
 $FrontdoorUrl = "urn:ietf:wg:oauth:2.0:oob"
 $TokenUrl = "https://management.azure.com"   # Run 'Get-AzureRmEnvironment | Select-Object Name, ResourceManagerUrl' cmdlet to get the Fairfax url.
@@ -187,17 +218,11 @@ $BackupType = 'CloudSnapshot'
 try {
     Write-Output "Starting start a manual backup."
 
-    if ( $WhatIf ) 
-    {
+    if ( $WhatIf ) {
         PrettyWriter "WhatIf: Perform manual backup." "Red"
     }
-    else 
-    {
-        $Result = [Microsoft.Azure.Management.StorSimple8000Series.BackupPoliciesOperationsExtensions]::BackupNowAsync($StorSimpleClient.BackupPolicies, $DeviceName, $BackupPolicyName, $BackupType, $ResourceGroupName, $ManagerName)
-        if ($Result -ne $null -and $Result.IsFaulted) {
-            Write-Output $Result.Exception
-            break
-        }
+    else {
+        [Microsoft.Azure.Management.StorSimple8000Series.BackupPoliciesOperationsExtensions]::BeginBackupNow($StorSimpleClient.BackupPolicies, $DeviceName, $BackupPolicyName, $BackupType, $ResourceGroupName, $ManagerName)
     }
 
     PrettyWriter "Successfully started the manual backup job."
@@ -211,8 +236,15 @@ catch {
 $CompletedSnapshots =@()
 
 # Get all backups by Device
+$BackupPolicyId = "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.StorSimple/managers/$ManagerName/devices/$DeviceName/backupPolicies/$BackupPolicyName"
+$BackupStartTime = (Get-Date -Date "1970-01-01 00:00:00Z").ToUniversalTime()
+$BackupFilter = GenerateBackupFilter $BackupPolicyId $BackupStartTime $ExpirationDate
+
+$oDataQuery = New-Object Microsoft.Rest.Azure.OData.ODataQuery[Microsoft.Azure.Management.StorSimple8000Series.Models.BackupFilter] -ArgumentList $BackupFilter
+
+# Get all backups by Device
 try {
-    $CompletedSnapshots = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::ListByDevice($StorSimpleClient.Backups, $DeviceName, $ResourceGroupName, $ManagerName)
+    $CompletedSnapshots = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::ListByDevice($StorSimpleClient.Backups, $DeviceName, $ResourceGroupName, $ManagerName, $oDataQuery)
 }
 catch {
     # Print error details
@@ -220,7 +252,8 @@ catch {
     break
 }
 
-Write-Output "Find the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them."
+Write-Output "`nFind the backup snapshots prior to $ExpirationDate ($RetentionInDays days) and delete them."
+PrettyWriter "Query: $BackupFilter`n" "Yellow"
 foreach ($Snapshot in $CompletedSnapshots) 
 {
     $SnapShotName = $SnapShot.Name
@@ -228,17 +261,12 @@ foreach ($Snapshot in $CompletedSnapshots)
     if ($SnapshotStartTimeStamp -lt $ExpirationDate)
     {
         try {
-            if ( $WhatIf ) 
-            {
+            if ( $WhatIf ) {
                 PrettyWriter "WhatIf: Trigger delete of snapshot $($SnapShotName) which was created on $($SnapshotStartTimeStamp)" "Red"
             }
-            else 
-            {
+            else {
                 PrettyWriter "Deleting $($SnapShotName) which was created on $($SnapshotStartTimeStamp)."
-                $Result = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::DeleteAsync($StorSimpleClient.Backups, $DeviceName, $SnapShotName, $ResourceGroupName, $ManagerName)
-                if ($Result -ne $null -and $Result.IsFaulted) {
-                    Write-Error $Result.Exception
-                }
+                $Result = [Microsoft.Azure.Management.StorSimple8000Series.BackupsOperationsExtensions]::BeginDelete($StorSimpleClient.Backups, $DeviceName, $SnapShotName, $ResourceGroupName, $ManagerName)
             }
         }
         catch {
