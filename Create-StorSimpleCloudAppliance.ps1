@@ -133,7 +133,15 @@ $iPconfig = New-AzureRmNetworkInterfaceIpConfig -Name "ipconfig1" -PrivateIpAddr
 $nic = New-AzureRmNetworkInterface -Name $nicName -ResourceGroupName $ResourceGroup -Location $location -IpConfiguration $iPconfig
 $nicId = $nic.Id
 
-$TrimmedRegKey=$RegistrationKey.Substring(0, $RegistrationKey.LastIndexOf(':'))
+if($RegistrationKey.LastIndexOf(':') != -1)
+{
+	$TrimmedRegKey=$RegistrationKey.Substring(0, $RegistrationKey.LastIndexOf(':'))
+}
+else
+{
+	$TrimmedRegKey=$RegistrationKey
+}
+
 $customData = ""
 $customData += "`r`nModelNumber=$ModelNumber"
 $customData += "`r`nRegistrationKey=$TrimmedRegKey"
@@ -149,7 +157,7 @@ $vmConfig = New-AzureRmVMConfig -VMName $Name -VMSize $VmSize | `
     Add-AzureRmVMDataDisk -Name "datadisk2" -DiskSizeInGB 1023 -VhdUri ($storageAcc.PrimaryEndpoints.Blob.ToString() + $containerName + "\datadisk2.vhd") -CreateOption empty -Lun 1 | `
     Add-AzureRmVMDataDisk -Name "datadisk3" -DiskSizeInGB 1023 -VhdUri ($storageAcc.PrimaryEndpoints.Blob.ToString() + $containerName + "\datadisk3.vhd") -CreateOption empty -Lun 2 | `
     Add-AzureRmVMDataDisk -Name "datadisk4" -DiskSizeInGB 1023 -VhdUri ($storageAcc.PrimaryEndpoints.Blob.ToString() + $containerName + "\datadisk4.vhd") -CreateOption empty -Lun 3 | `
-    Set-AzureRmVMSourceImage -PublisherName MicrosoftHybridCloudStorage -Offer StorSimple -Skus StorSimple-Garda-8000-Series -Version 9600.17820.170208 | `
+    Set-AzureRmVMSourceImage -PublisherName MicrosoftHybridCloudStorage -Offer StorSimple -Skus StorSimple-Garda-8000-Series -Version 9600.17845.170810 | `
     Add-AzureRmVMNetworkInterface -Id $nicId | Set-AzureRmVMBootDiagnostics -Disable
 
 try {
