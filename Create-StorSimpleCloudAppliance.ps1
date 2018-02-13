@@ -133,7 +133,7 @@ $iPconfig = New-AzureRmNetworkInterfaceIpConfig -Name "ipconfig1" -PrivateIpAddr
 $nic = New-AzureRmNetworkInterface -Name $nicName -ResourceGroupName $ResourceGroup -Location $location -IpConfiguration $iPconfig
 $nicId = $nic.Id
 
-if($RegistrationKey.LastIndexOf(':') != -1)
+if($RegistrationKey.LastIndexOf(':') -ne -1)
 {
 	$TrimmedRegKey=$RegistrationKey.Substring(0, $RegistrationKey.LastIndexOf(':'))
 }
