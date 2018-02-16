@@ -61,6 +61,7 @@ Param
     $ManagerName,
 
     [parameter(Mandatory = $true, HelpMessage = "Input the region or location in Azure for the StorSimple device manager to be created.")]
+    [ValidateSet('Australia East','Australia Southeast','Brazil South','East Asia','East US','Japan East','Japan West','North Europe','Southeast Asia','West Central US','West Europe','West US')]
     [String]
     $Location,
 
@@ -105,6 +106,25 @@ $ScriptDirectory = $PSScriptRoot
 # Print method
 Function PrettyWriter($Content, $Color = "Yellow") { 
     Write-Host $Content -Foregroundcolor $Color 
+}
+
+Function ReadLocation() {
+    param ([string] $LocationFriendlyName)
+    switch($LocationFriendlyName) 
+    {
+         'Australia East' { return 'australiaeast' }
+         'Australia Southeast' { return 'australiasoutheast' }
+         'Brazil South' { return 'brazilsouth' }
+         'East Asia' { return 'eastasia' }
+         'East US' { return 'eastus' }
+         'Japan East' { return 'japaneast' }
+         'Japan West' { return 'japanwest' }
+         'North Europe' { return 'northeurope' }
+         'Southeast Asia' { return 'southeastasia' }
+         'West Central US' { return 'westcentralus' }
+         'West Europe' { return 'westeurope' }
+         'West US' { return 'westus' }
+    }
 }
 
 # Define constant variables (DO NOT CHANGE BELOW VALUES)
@@ -152,6 +172,8 @@ try {
         throw "Failed to authenticate!"
     }
 
+    $Loc = ReadLocation $Location
+
     # Get StorSimpleClient instance
     $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.StorSimple8000SeriesManagementClient -ArgumentList $TokenUri, $Credentials
 
@@ -166,9 +188,9 @@ try {
     {
         # This is 8000 series params
         $ResourceType = "GardaV1"
-        $ManagerParams = New-Object Microsoft.Azure.Management.StorSimple8000Series.Models.Manager -ArgumentList $Location,$ManagerName,$ManagerName,$ResourceType
+        $ManagerParams = New-Object Microsoft.Azure.Management.StorSimple8000Series.Models.Manager -ArgumentList $Loc,$ManagerName,$ManagerName,$ResourceType
         Write-Output "Creating a StorSimple Device Manager '$ManagerName' under Resource Group '$ResourceGroupName' and subscription '$SubscriptionId'"
-        [Microsoft.Azure.Management.StorSimple8000Series.ManagersOperationsExtensions]::CreateOrUpdateAsync($StorSimpleClient.Managers, $ManagerParams, $ResourceGroupName, $ManagerName).GetAwaiter().GetResult() | Out-Null        
+        [Microsoft.Azure.Management.StorSimple8000Series.ManagersOperationsExtensions]::CreateOrUpdate($StorSimpleClient.Managers, $ManagerParams, $ResourceGroupName, $ManagerName)
         PrettyWriter "Successfully created the StorSimple Device Manager." "Yellow"
     }
 }
