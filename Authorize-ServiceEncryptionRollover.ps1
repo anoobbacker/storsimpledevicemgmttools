@@ -18,7 +18,7 @@
             C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Rest.ClientRuntime.Azure.Authentication -Version 2.2.9-preview
     
     4.  Download the script from script center. 
-            wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Authorize-ServiceEncryptionRollover.ps1 -Out Authorize-ServiceEncryptionRollover.ps1
+            wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Authorize-ServiceEncryptionRollover.ps1?raw=true -Out Authorize-ServiceEncryptionRollover.ps1
             .\Authorize-ServiceEncryptionRollover.ps1 -SubscriptionId [subid] -TenantId [tenantid] -ResourceGroupName [resource group] -ManagerName [device manager] -DeviceName [device name] -AuthNType [Type of auth] -AADAppId [AAD app Id] -AADAppAuthNKey [AAD App Auth Key]
      
      ----------------------------     
