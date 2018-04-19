@@ -14,13 +14,13 @@
     
     2. Download & execute the script from github. 
             wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Create-StorSimpleCloudAppliance.ps1 -Out Authorize-ServiceEncryptionRollover.ps1
-            .\Create-StorSimpleCloudAppliance.ps1 -CloudEnv [AzureCloud| -SubscriptionId [subcription id] -ResourceGroup [resource group] -Name [appliance name] -ModelNumber [8010|8020] -VirtualNetwork [vnet] -Subnet [subnet] -StorageAccount [storage name] -VmSize [vmsize] -RegistrationKey [key]
+            .\Create-StorSimpleCloudAppliance.ps1 -CloudEnv [AzureCloud| -SubscriptionId [subcription id] -ResourceGroupVM [virtual machine resource group] -Name [appliance name] -ModelNumber [8010|8020] -VirtualNetwork [vnet] -Subnet [subnet] -StorageAccount [storage name] -VmSize [vmsize] -RegistrationKey [key]
      ----------------------------   
 
 .PARAMS
     CloudEnv: Input the Azure Cloud Environment.
     SubscriptionId: Input the ID of the subscription.
-    ResourceGroup: Input the name of the resource group on which to authorize a device to change the service encryption key.
+    ResourceGroupVM: Input the name of the resource group in which the virtual machine and nic would be created.
     Name: Input the name of the cloud appliance.
     ModelNumber: Input the appliance model number.
     VirtualNetwork: Input the name of the virtual network.
@@ -38,8 +38,8 @@ param(
     [parameter(Mandatory = $true, HelpMessage = "Input the ID of the subscription.")]
     [String] $SubscriptionId,
 
-    [parameter(Mandatory=$true, HelpMessage="Input the name of the resource group where virtual netowrk and storage accoutn are present.")]
-    [string] $ResourceGroup,
+    [parameter(Mandatory=$true, HelpMessage="Input the name of the resource group where VM will get created.")]
+    [string] $ResourceGroupVM,
 
     [parameter(Mandatory=$true, HelpMessage="Input the name of the cloud appliance.")]
     [string] $Name,
@@ -113,9 +113,20 @@ $AzureAcct = Add-AzureRmAccount -Environment $AzureCloudenv
  
 # Set context
 $AzureRmCtx = Set-AzureRmContext -SubscriptionId $SubscriptionId
+$vnetList =   | where Name -EQ $VirtualNetwork
+$storageAcc = Get-AzureRmStorageAccount | where StorageAccountName -EQ $StorageAccount
 
-$vnet = Get-AzureRmVirtualNetwork -Name $VirtualNetwork -ResourceGroupName $ResourceGroup
-$storageAcc = Get-AzureRmStorageAccount -Name $StorageAccount -ResourceGroupName $ResourceGroup
+if($vnetList.length -eq 0){
+    throw [System.ArgumentException] "Vnet with $VirtualNetwork not found in subscription $SubscriptionId"
+} 
+elseif($vnetList.length -gt 1){
+    $vnet = $vnetList[0]
+    $vnetresourcegroupname = $vnet.ResourceGroupName
+    PrettyWriter "More than one vnet with $VirtualNetwork found in subscription $SubscriptionId. Using virtual network in resource group $vnetresourcegroupname"
+} 
+else {
+    $vnet = $vnetList
+}
 
 # Validate
 ValidateInputs
@@ -130,7 +141,7 @@ $availableIpAddr = $vnet | Test-AzureRmPrivateIPAddressAvailability -IPAddress $
 $avaialbleIp = $availableIpAddr.AvailableIPAddresses[0]
 $subnetId = $subnetObj.Id
 $iPconfig = New-AzureRmNetworkInterfaceIpConfig -Name "ipconfig1" -PrivateIpAddressVersion IPv4 -PrivateIpAddress $avaialbleIp -SubnetId $subnetId
-$nic = New-AzureRmNetworkInterface -Name $nicName -ResourceGroupName $ResourceGroup -Location $location -IpConfiguration $iPconfig
+$nic = New-AzureRmNetworkInterface -Name $nicName -ResourceGroup $ResourceGroupVM -Location $location -IpConfiguration $iPconfig
 $nicId = $nic.Id
 
 if($RegistrationKey.LastIndexOf(':') -ne -1)
@@ -161,7 +172,7 @@ $vmConfig = New-AzureRmVMConfig -VMName $Name -VMSize $VmSize | `
     Add-AzureRmVMNetworkInterface -Id $nicId | Set-AzureRmVMBootDiagnostics -Disable
 
 try {
-    $vm = New-AzureRmVM -ResourceGroupName $ResourceGroup -Location $location -VM $vmConfig
+    $vm = New-AzureRmVM -ResourceGroupName $ResourceGroupVM -Location $location -VM $vmConfig
     
     PrettyWriter "$Name successfully got created."
 } catch {
