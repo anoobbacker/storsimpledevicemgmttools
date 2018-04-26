@@ -13,7 +13,7 @@
             cd C:\scripts\StorSimpleSDKTools
     
     2. Download & execute the script from github. 
-            wget https://github.com/anoobbacker/storsimpledevicemgmttools/raw/master/Create-StorSimpleCloudAppliance.ps1 -Out Authorize-ServiceEncryptionRollover.ps1
+            wget https://raw.githubusercontent.com/anoobbacker/storsimpledevicemgmttools/master/Create-StorSimpleCloudAppliance.ps1 -Out Create-StorSimpleCloudAppliance.ps1
             .\Create-StorSimpleCloudAppliance.ps1 -CloudEnv [AzureCloud| -SubscriptionId [subcription id] -ResourceGroupVM [virtual machine resource group] -Name [appliance name] -ModelNumber [8010|8020] -VirtualNetwork [vnet] -Subnet [subnet] -StorageAccount [storage name] -VmSize [vmsize] -RegistrationKey [key]
      ----------------------------   
 
@@ -113,7 +113,7 @@ $AzureAcct = Add-AzureRmAccount -Environment $AzureCloudenv
  
 # Set context
 $AzureRmCtx = Set-AzureRmContext -SubscriptionId $SubscriptionId
-$vnetList =   | where Name -EQ $VirtualNetwork
+$vnetList =   Get-AzureRmVirtualNetwork | where Name -EQ $VirtualNetwork
 $storageAcc = Get-AzureRmStorageAccount | where StorageAccountName -EQ $StorageAccount
 
 if($vnetList.length -eq 0){
@@ -125,7 +125,7 @@ elseif($vnetList.length -gt 1){
     PrettyWriter "More than one vnet with $VirtualNetwork found in subscription $SubscriptionId. Using virtual network in resource group $vnetresourcegroupname"
 } 
 else {
-    $vnet = $vnetList
+    $vnet = $vnetList[0]
 }
 
 # Validate
