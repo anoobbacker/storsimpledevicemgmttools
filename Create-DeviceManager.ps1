@@ -127,6 +127,17 @@ Function ReadLocation() {
     }
 }
 
+Function IsStorSimpleProviderRegistered() {
+    $ResourceProviders = (Get-AzureRmResourceProvider -ProviderNamespace Microsoft.StorSimple | Where RegistrationState -eq 'Registered')
+    
+    if ($ResourceProviders -ne $null -and $ResourceProviders.Count -gt 0) {
+        return $true
+    }
+    else {
+        return $false
+    }
+}
+
 # Define constant variables (DO NOT CHANGE BELOW VALUES)
 $FrontdoorUrl = "urn:ietf:wg:oauth:2.0:oob"
 $TokenUrl = "https://management.azure.com"   # Run 'Get-AzureRmEnvironment | Select-Object Name, ResourceManagerUrl' cmdlet to get the Fairfax url.
@@ -170,6 +181,15 @@ try {
 
     if ($Credentials -eq $null) {
         throw "Failed to authenticate!"
+    }
+    
+    # Register StorSimple ResourceProvider
+    if ( !(IsStorSimpleProviderRegistered) ) {
+        $Result = Register-AzureRmResourceProvider -ProviderNamespace Microsoft.StorSimple
+
+        if ($Result -eq $null -or $Result.RegistrationState -ne 'Registered') {
+            Write-Error "Failed to register Microsoft.StorSimple provider"
+        }
     }
 
     $Loc = ReadLocation $Location
