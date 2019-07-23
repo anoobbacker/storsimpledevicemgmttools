@@ -18,7 +18,7 @@
             C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Rest.ClientRuntime.Azure.Authentication -Version 2.2.9-preview
     
     4.  Download the script from github. 
-            wget https://raw.githubusercontent.com/anoobbacker/storsimpledevicemgmttools/master/Monitor-Backups.ps1 -Out Monitor-Backups.ps1
+            wget https://raw.githubusercontent.com/anoobbacker/storsimpledevicemgmttools/master/runbooks/Monitor-Backups.ps1 -Out Monitor-Backups.ps1
      
     5. Create an Azure automation account with Azure RunAs Account. Refer https://docs.microsoft.com/azure/automation/automation-create-standalone-account. 
     
