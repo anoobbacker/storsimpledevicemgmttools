@@ -79,6 +79,11 @@
             New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-ToAddress" -Value "$MailToAddress"
             New-AzureRmAutomationVariable -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Subject" -Value "$MailSubject"
             New-AzureRmAutomationCredential -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name "Mail-Credential" -Value $Creds
+            
+    10. To ensure that the automation account created can access the StorSimple Device Manager service, you need to assign appropriate 
+        permissions to the automation account. Go to Access control in your StorSimple Device Manager service. 
+        Click + Add and provide the name of your Azure Automation Account. Save the settings.
+        Refer https://docs.microsoft.com/azure/storsimple/storsimple-8000-automation-azurerm-runbook
 
      ----------------------------
 .PARAMS
