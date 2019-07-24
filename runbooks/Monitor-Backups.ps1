@@ -9,7 +9,8 @@
             cd C:\scripts\StorSimpleSDKTools
     
     2.  Download nuget CLI under the same folder in Step1.
-        Various versions of nuget.exe are available on nuget.org/downloads. Each download link points directly to an .exe file, so be sure to right-click and save the file to your computer rather than running it from the browser. 
+        Various versions of nuget.exe are available on nuget.org/downloads. Each download link points directly to an .exe file, 
+        so be sure to right-click and save the file to your computer rather than running it from the browser. 
             wget https://dist.nuget.org/win-x86-commandline/latest/nuget.exe -Out C:\scripts\StorSimpleSDKTools\nuget.exe
     
     3.  Download the dependent SDK
@@ -20,11 +21,14 @@
     4.  Download the script from github. 
             wget https://raw.githubusercontent.com/anoobbacker/storsimpledevicemgmttools/master/runbooks/Monitor-Backups.ps1 -Out Monitor-Backups.ps1
      
-    5. Create an Azure automation account with Azure RunAs Account. Refer https://docs.microsoft.com/azure/automation/automation-create-standalone-account. 
+    5. Create an Azure automation account with Azure RunAs Account. 
+       Refer https://docs.microsoft.com/azure/automation/automation-create-standalone-account. 
     
-        If you've an existing Azure automation account configure the Azure RunAs Account, refer https://docs.microsoft.com/azure/automation/automation-create-runas-account.
+       If you've an existing Azure automation account configure the Azure RunAs Account. 
+       Refer https://docs.microsoft.com/azure/automation/automation-create-runas-account.
 
-    6. Create an Azure Automation Runbook Module for StorSimple 8000 Series device management. Use the below commands to create a Automation module zip file.
+    6. Create an Azure Automation Runbook Module for StorSimple 8000 Series device management. 
+       Use the below commands to create a Automation module zip file.
 
             # set path variables
             $downloadDir = "C:\scripts\StorSimpleSDKTools"
@@ -42,7 +46,8 @@
             #Don't change the name of the Archive
             compress-Archive -Path "$moduleDir" -DestinationPath Microsoft.Azure.Management.StorSimple8000Series.zip
 
-    7. Import the Azure Automation module zip file (Microsoft.Azure.Management.StorSimple8000Series.zip) created in above step. This can be done by selecting the Automation Account, click "Modules" under SHARED RESOURCES and then click "Add a module". 
+    7. Import the Azure Automation module zip file (Microsoft.Azure.Management.StorSimple8000Series.zip) created in above step. 
+       This can be done by selecting the Automation Account, click "Modules" under SHARED RESOURCES and then click "Add a module". 
 
     8. Import the runbook script (Monitor-Backup.ps1) as a Azure Automation Powershell runbook script, publish & execute it.
 
