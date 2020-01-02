@@ -1,5 +1,5 @@
 # StorSimple Device Management Tools
-This project will contain scripts and other tools which can be leveraged for automating StorSimple device management.
+This project will contain samples scripts which can be leveraged for automating StorSimple device management.
 
 ## Run Azure PowerShell script
 The script used in this example lists all the jobs on a StorSimple device. This includes the jobs that succeeded, failed, or are in progress. Perform the following steps to download and run the script.
